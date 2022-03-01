@@ -18,6 +18,7 @@
  IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
  CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
+ // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
@@ -38,13 +39,16 @@ contract TheStableMoney is ERC20 {
     }
 
     modifier onlyMinter {
-        require(minter[msg.sender] == true, "Unauhtorized");
+        require(minter[msg.sender] == true, "Unauthorized");
         _;
     }
 
     constructor() ERC20("The Stable Money", "TSM") {
         owner = msg.sender;
         minter[msg.sender] = true;
+
+        emit MinterAdded(msg.sender);
+        emit OwnershipTransferred(address(0), msg.sender);
     }
 
     // User functions
