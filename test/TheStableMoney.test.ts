@@ -1,5 +1,6 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
+import { signERC2612Permit } from 'eth-permit';
 
 const snapshot = async () => {
     const [deployer, otherAddress1, otherAddress2] = await ethers.getSigners();
@@ -43,6 +44,28 @@ describe("Stablecoin", () => {
 
         const totalSupply = await stablecoin.totalSupply();
         expect(totalSupply).to.eq(0);
+
+        const PERMIT_TYPEHASH = await stablecoin.PERMIT_TYPEHASH();
+        expect(PERMIT_TYPEHASH).to.eq("0x6e71edae12b1b97f4d1f60370fef10105fa2faae0126114a169c64845d6126c9");
+    });
+    it("DOMAIN_SEPARATOR construction", async () => {
+        const {
+            stablecoin
+        } = await snapshot();
+
+        const actualDS = await stablecoin.DOMAIN_SEPARATOR();
+
+        const coder = new ethers.utils.AbiCoder();
+        const expectedDS = ethers.utils.keccak256(coder.encode(
+            ["bytes32", "bytes32", "bytes32", "uint", "address"],
+            [
+                ethers.utils.keccak256("0x454950373132446f6d61696e28737472696e67206e616d652c737472696e672076657273696f6e2c75696e7432353620636861696e49642c6164647265737320766572696679696e67436f6e747261637429"),
+                ethers.utils.keccak256("0x54686520537461626c65204d6f6e6579"),
+                ethers.utils.keccak256("0x31"),
+                31337,
+                stablecoin.address
+            ]
+        ));
     });
     it("Access Control", async () => {
         const {
@@ -225,5 +248,128 @@ describe("Stablecoin", () => {
 
         const ts0 = await stablecoin.totalSupply();
         expect(ts0).to.eq(0);
+    });
+    it("EIP-2612 permit() Implementation", async () => {
+        const {
+            stablecoin,
+            otherAddress1,
+            otherAddress2
+        } = await snapshot();
+
+        // Deposit for otherAddress1
+        const amount = ethers.utils.parseEther("10");
+        await stablecoin.mint(otherAddress1.address, amount);
+
+        // Construct permit() message from otherAddress1
+        const sig1 = await signERC2612Permit(
+            otherAddress1,
+            stablecoin.address,
+            otherAddress1.address,
+            otherAddress2.address,
+            amount.toString()
+        );
+        await stablecoin.connect(otherAddress2).permit(
+            otherAddress1.address,
+            otherAddress2.address,
+            amount,
+            sig1.deadline,
+            sig1.v,
+            sig1.r,
+            sig1.s
+        );
+
+        // Check allowance
+        const a1 = await stablecoin.allowance(otherAddress1.address, otherAddress2.address);
+        expect(a1).to.eq(amount);
+
+        // tranferFrom()
+        await stablecoin.connect(otherAddress2).transferFrom(otherAddress1.address, otherAddress2.address, amount);
+
+        // Check allowance
+        const a2 = await stablecoin.allowance(otherAddress1.address, otherAddress2.address);
+        expect(a2).to.eq(0);
+
+        // Construct permit() from otherAddress2 (small deadline)
+        var lblock = await (otherAddress1.provider as any).getBlock('latest');
+        var ddl = lblock.timestamp + 100;
+        await (otherAddress1.provider as any).send("evm_increaseTime", [500]);
+
+        const sig2 = await signERC2612Permit(
+            otherAddress2,
+            stablecoin.address,
+            otherAddress2.address,
+            otherAddress1.address,
+            amount.toString(),
+            ddl
+        );
+        await expect(
+            stablecoin.connect(otherAddress2).permit(
+                otherAddress2.address,
+                otherAddress1.address,
+                amount,
+                sig2.deadline,
+                sig2.v,
+                sig2.r,
+                sig2.s
+            )
+        )
+        .to.be.revertedWith(
+            "Permit: EXPIRED"
+        );
+
+        // Forged signature (reuse nonce)
+        await expect(
+            stablecoin.connect(otherAddress2).permit(
+                otherAddress1.address,
+                otherAddress2.address,
+                amount,
+                sig1.deadline,
+                sig1.v,
+                sig1.r,
+                sig1.s
+            )
+        )
+        .to.be.revertedWith(
+            "Permit: INVALID_SIGNATURE"
+        );
+
+        // Signature investor 2
+        const sig3 = await signERC2612Permit(
+            otherAddress2,
+            stablecoin.address,
+            otherAddress2.address,
+            otherAddress1.address,
+            amount.toString()
+        );
+        await stablecoin.permit(
+            otherAddress2.address,
+            otherAddress1.address,
+            amount,
+            sig3.deadline,
+            sig3.v,
+            sig3.r,
+            sig3.s
+        );
+        await stablecoin.connect(otherAddress1).transferFrom(otherAddress2.address, otherAddress1.address, amount);
+
+        // Second signature investor 1
+        const sig4 = await signERC2612Permit(
+            otherAddress1,
+            stablecoin.address,
+            otherAddress1.address,
+            otherAddress2.address,
+            amount.toString()
+        );
+        await stablecoin.connect(otherAddress2).permit(
+            otherAddress1.address,
+            otherAddress2.address,
+            amount,
+            sig4.deadline,
+            sig4.v,
+            sig4.r,
+            sig4.s
+        );
+
+        await stablecoin.connect(otherAddress2).transferFrom(otherAddress1.address, otherAddress2.address, amount);
     });
 });

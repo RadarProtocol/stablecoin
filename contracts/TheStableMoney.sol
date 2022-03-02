@@ -29,6 +29,11 @@ contract TheStableMoney is ERC20 {
 
     mapping(address => bool) public minter;
 
+    bytes32 immutable public DOMAIN_SEPARATOR;
+    // keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)");
+    bytes32 public constant PERMIT_TYPEHASH = 0x6e71edae12b1b97f4d1f60370fef10105fa2faae0126114a169c64845d6126c9;
+    mapping(address => uint) public nonces;
+
     event MinterAdded(address indexed minter);
     event MinterRemoved(address indexed minter);
     event OwnershipTransferred(address indexed oldOwner, address indexed newOwner);
@@ -47,11 +52,37 @@ contract TheStableMoney is ERC20 {
         owner = msg.sender;
         minter[msg.sender] = true;
 
+        // Build DOMAIN_SEPARATOR
+        DOMAIN_SEPARATOR = keccak256(
+            abi.encode(
+                keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
+                keccak256(bytes("The Stable Money")),
+                keccak256(bytes("1")),
+                block.chainid,
+                address(this)
+            )
+        );
+
         emit MinterAdded(msg.sender);
         emit OwnershipTransferred(address(0), msg.sender);
     }
 
     // User functions
+
+    // EIP-2612: permit() https://eips.ethereum.org/EIPS/eip-2612
+    function permit(address _owner, address _spender, uint _value, uint _deadline, uint8 _v, bytes32 _r, bytes32 _s) external {
+        require(_deadline >= block.timestamp, "Permit: EXPIRED");
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                DOMAIN_SEPARATOR,
+                keccak256(abi.encode(PERMIT_TYPEHASH, _owner, _spender, _value, nonces[_owner]++, _deadline))
+            )
+        );
+        address recoveredAddress = ecrecover(digest, _v, _r, _s);
+        require(recoveredAddress != address(0) && recoveredAddress == _owner, "Permit: INVALID_SIGNATURE");
+        _approve(_owner, _spender, _value);
+    }
 
     function burn(uint256 _amount) external {
         _burn(msg.sender, _amount);
