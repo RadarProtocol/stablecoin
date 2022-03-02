@@ -57,10 +57,8 @@ const config: HardhatUserConfig = {
         mnemonic,
       },
       forking: {
-        // blockNumber: 13430490,
-        // blockNumber: 13603419,
-        blockNumber: 14095344,
-        url: node('ethereum'), // Oct 16, 2021
+        blockNumber: 14303425,
+        url: node('ethereum'),
       },
       gas: 9500000,
       gasMultiplier: 1.1,
