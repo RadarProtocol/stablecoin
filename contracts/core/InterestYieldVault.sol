@@ -26,7 +26,7 @@ import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./../interfaces/IStrategy.sol";
 
-contract YieldVault {
+contract InterestYieldVault {
     using SafeERC20 for IERC20;
 
     // Share balances (for each token)
@@ -47,6 +47,7 @@ contract YieldVault {
 
     address private owner;
     address private pendingOwner;
+    address private pokeMe;
 
     event OwnershipTransferred(address indexed oldOwner, address indexed newOwner);
     event StrategyAdded(address indexed token, address indexed strategy);
@@ -65,13 +66,28 @@ contract YieldVault {
         _;
     }
 
-    constructor() {
+    modifier onlyPokeMe {
+        require(msg.sender == owner || msg.sender == pokeMe, "Unauthorized");
+        _;
+    }
+
+    constructor(address _pokeMe) {
         owner = msg.sender;
+        pokeMe = _pokeMe;
 
         emit OwnershipTransferred(address(0), msg.sender);
     }
 
     // Owner Functions
+
+    function changePokeMe(address _newPokeMe) external onlyOwner {
+        pokeMe = _newPokeMe;
+    }
+
+    function changeBufferAmount(address _token, uint256 _newBuf) external onlyOwner {
+        require(supportedTokens[_token], "Token not supported");
+        bufferSize[_token] = _newBuf;
+    }
 
     function transferOwnership(address _newOwner) external onlyOwner {
         pendingOwner = _newOwner;
@@ -159,9 +175,21 @@ contract YieldVault {
 
     // Bot functions (Gelato)
 
-    // TODO: Access Control
-    function executeStrategy(address _token) external {
-        
+    function executeStrategy(address _token) external onlyPokeMe {
+        address _strategy = strategies[_token];
+        require(_strategy != address(0), "Strategy doesn't exist");
+        // TODO: Maybe use Gelato's check every block aka revert if harvesting is not needed.
+
+        // Harvest strategy
+        IStrategy(_strategy).harvest(_token);
+
+        // Deposit to strategy
+        uint256 _contractBalance = IERC20(_token).balanceOf(address(this));
+        uint256 _bufferSize = bufferSize[_token];
+        if (_contractBalance > _bufferSize) {
+            uint256 _depositAmount = _contractBalance - _bufferSize;
+            IStrategy(_strategy).depositToStrategy(_token, _depositAmount);
+        }
     }
 
     // Internal Functions
@@ -202,14 +230,16 @@ contract YieldVault {
         balances[_token][_payer] = balances[_token][_payer] - _shares;
 
         uint256 _amountInVault = IERC20(_token).balanceOf(address(this));
-        if (_amountInVault < (_amount + bufferSize[_token])) {
-            address _strategy = strategies[_token];
-            // TODO: Test this is correct
-            uint256 _amountToWithdraw = (_amount + bufferSize[_token]) - _amountInVault;
+        address _strategy = strategies[_token];
+        if (_strategy != address(0)) {
+            if (_amountInVault < _amount) {
+                // TODO: Test this is correct
+                uint256 _amountToWithdraw = _amount - _amountInVault;
 
-            // If we need to withdraw from the strategy, make sure it is liquid
-            require(IStrategy(_strategy).isLiquid(_token, _amountToWithdraw), "Strategy not Liquid. Try again later.");
-            IStrategy(_strategy).withdrawFromStrategy(_token, _amountToWithdraw);
+                // If we need to withdraw from the strategy, make sure it is liquid
+                require(IStrategy(_strategy).isLiquid(_token, _amountToWithdraw), "Strategy not Liquid. Try again later.");
+                IStrategy(_strategy).withdrawFromStrategy(_token, _amountToWithdraw);
+            }
         }
 
         IERC20(_token).safeTransfer(_destination, _amount);

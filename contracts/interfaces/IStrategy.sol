@@ -28,7 +28,11 @@ interface IStrategy {
 
     function exit() external;
 
+    function depositToStrategy(address _token, uint256 _amount) external;
+
     function withdrawFromStrategy(address _token, uint256 _amount) external;
 
     function isLiquid(address _token, uint256 _amount) external view returns (bool);
+
+    function harvest(address _token) external;
 }
