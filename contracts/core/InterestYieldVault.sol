@@ -22,6 +22,7 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./../interfaces/IStrategy.sol";
 
@@ -36,6 +37,14 @@ contract YieldVault {
     // Token to yield strategy
     mapping(address => address) private strategies;
 
+    // Supported tokens
+    mapping(address => bool) private supportedTokens;
+
+    uint256 constant DUST = 10**10;
+    
+    // How many tokens should stay inside the Yield Vault at any time
+    mapping(address => uint256) private bufferSize;
+
     address private owner;
     address private pendingOwner;
 
@@ -44,6 +53,12 @@ contract YieldVault {
     event StrategyRemoved(address indexed token);
 
     event ShareTransfer(address indexed token, address indexed from, address indexed to, uint256 amount);
+
+    event TokenAdded(address indexed token, uint256 bufferSize);
+    event TokenRemoved(address indexed token);
+
+    event Deposit(address indexed token, address indexed payer, address indexed receiver, uint256 amount, uint256 sharesMinted);
+    event Withdraw(address indexed token, address indexed payer, address indexed receiver, uint256 amount, uint256 sharesBurned);
 
     modifier onlyOwner {
         require(msg.sender == owner, "Unauthorized");
@@ -71,6 +86,8 @@ contract YieldVault {
     }
 
     function addStrategy(address _token, address _strategy) external onlyOwner {
+        require(IStrategy(_strategy).getIsSupportedToken(_token), "Token not supported");
+
         strategies[_token] = _strategy;
         emit StrategyAdded(_token, _strategy);
     }
@@ -86,6 +103,27 @@ contract YieldVault {
         IStrategy(_strategy).exit();
     }
 
+    function addSupportedToken(address _token, uint256 _bufferSize) external onlyOwner {
+        require(!supportedTokens[_token], "Token already added");
+
+        supportedTokens[_token] = true;
+        bufferSize[_token] = _bufferSize;
+
+        emit TokenAdded(_token, _bufferSize);
+    }
+
+    function removeSupportedToken(address _token) external onlyOwner {
+        require(supportedTokens[_token], "Token not supported");
+
+        // Check there are no balances
+        require(_tokenTotalBalance(_token) <= DUST, "Token is active");
+
+        supportedTokens[_token] = false;
+        bufferSize[_token] = 0;
+
+        emit TokenRemoved(_token);
+    }
+
     // User functions
 
     function transferShares(address _token, address _to, uint256 _amount) external {
@@ -97,14 +135,112 @@ contract YieldVault {
         emit ShareTransfer(_token, msg.sender, _to, _amount);
     }
 
+    // Deposits get called with token amount and
+    // Withdrawals get called with shares amount.
+    // If this is not what the user/contract interacting
+    // with the IYV wants, the convertShares
+    // function can be used
+
+    function deposit(address _token, address _destination, uint256 _amount) external {
+        _deposit(_token, msg.sender, _destination, _amount);
+    }
+
+    function depositWithSignature(address _token, address _payer, address _destination, uint256 _amount) external {
+        // TODO: Implement
+    }
+
+    function withdraw(address _token, address _destination, uint256 _shares) external {
+        _withdraw(_token, msg.sender, _destination, _shares);
+    }
+
+    function withdrawWithSignature() external {
+        // TODO: Implement
+    }
+
     // Bot functions (Gelato)
 
+    // TODO: Access Control
+    function executeStrategy(address _token) external {
+        
+    }
+
     // Internal Functions
+
+    function _deposit(address _token, address _payer, address _destination, uint256 _amount) internal {
+        require(supportedTokens[_token], "Token not supported");
+
+        // TODO: Test this is correct
+        uint256 _sharesToMint = _convertShares(_token, 0, _amount);
+
+        require(_sharesToMint != 0 && _amount != 0, "0 deposit invalid");
+
+        IERC20(_token).safeTransferFrom(_payer, address(this), _amount);
+
+        totalShareSupply[_token] = totalShareSupply[_token] + _sharesToMint;
+        balances[_token][_destination] = balances[_token][_destination] + _sharesToMint;
+
+        // Event
+        emit Deposit(
+            _token,
+            _payer,
+            _destination,
+            _amount,
+            _sharesToMint
+        );
+    }
+
+    function _withdraw(address _token, address _payer, address _destination, uint256 _shares) internal {
+        require(supportedTokens[_token], "Token not supported");
+
+        // TODO: Test this is correct
+        uint256 _amount = _convertShares(_token, _shares, 0);
+
+        require(_shares != 0 && _amount != 0, "0 withdraw invalid");
+        require(balances[_token][_payer] >= _shares, "Not enough funds");
+
+        totalShareSupply[_token] = totalShareSupply[_token] - _shares;
+        balances[_token][_payer] = balances[_token][_payer] - _shares;
+
+        uint256 _amountInVault = IERC20(_token).balanceOf(address(this));
+        if (_amountInVault < (_amount + bufferSize[_token])) {
+            address _strategy = strategies[_token];
+            // TODO: Test this is correct
+            uint256 _amountToWithdraw = (_amount + bufferSize[_token]) - _amountInVault;
+
+            // If we need to withdraw from the strategy, make sure it is liquid
+            require(IStrategy(_strategy).isLiquid(_token, _amountToWithdraw), "Strategy not Liquid. Try again later.");
+            IStrategy(_strategy).withdrawFromStrategy(_token, _amountToWithdraw);
+        }
+
+        IERC20(_token).safeTransfer(_destination, _amount);
+
+        // Event
+        emit Withdraw(
+            _token,
+            _payer,
+            _destination,
+            _amount,
+            _shares
+        );
+    }
 
     function _tokenTotalBalance(address _token) internal view returns (uint256) {
         address _strategy = strategies[_token];
         uint256 _strategyBal = _strategy == address(0) ? 0 : IStrategy(_strategy).invested(_token);
         return IERC20(_token).balanceOf(address(this)) + _strategyBal;
+    }
+
+    function _convertShares(address _token, uint256 _shares, uint256 _amount) internal view returns (uint256) {
+        require((_shares == 0 || _amount == 0) && !(_shares == 0 && _amount == 0), "_shares OR _amount must be 0");
+        if (_amount == 0) {
+            return totalShareSupply[_token] != 0 ? (_shares * _tokenTotalBalance(_token)) / totalShareSupply[_token] : _shares;
+        }
+
+        if (_shares == 0) {
+            return totalShareSupply[_token] != 0 ? (_amount * totalShareSupply[_token]) / _tokenTotalBalance(_token) : 0;
+        }
+
+        return 0;
     }
 
     // State Getters
@@ -123,5 +259,13 @@ contract YieldVault {
 
     function getTotalShareSupply(address _token) external view returns (uint256) {
         return totalShareSupply[_token];
+    }
+
+    function getIsSupportedToken(address _token) external view returns (bool) {
+        return supportedTokens[_token];
+    }
+
+    function convertShares(address _token, uint256 _shares, uint256 _amount) external view returns (uint256) {
+        return _convertShares(_token, _shares, _amount);
     }
 }

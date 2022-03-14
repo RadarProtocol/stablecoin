@@ -24,7 +24,11 @@ pragma solidity ^0.8.0;
 interface IStrategy {
     function invested(address _token) external view returns (uint256);
 
-    function supportedTokens() external view returns (address[] memory);
+    function getIsSupportedToken(address _token) external view returns (bool);
 
     function exit() external;
+
+    function withdrawFromStrategy(address _token, uint256 _amount) external;
+
+    function isLiquid(address _token, uint256 _amount) external view returns (bool);
 }
