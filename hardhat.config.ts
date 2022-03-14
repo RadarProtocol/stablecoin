@@ -43,7 +43,7 @@ const config: HardhatUserConfig = {
         runs: 200,
       },
     },
-    version: '0.8.0',
+    version: '0.8.2',
   },
   namedAccounts: {
     deployer: 0
