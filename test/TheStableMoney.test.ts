@@ -66,6 +66,8 @@ describe("Stablecoin", () => {
                 stablecoin.address
             ]
         ));
+
+        expect(actualDS).to.eq(expectedDS);
     });
     it("Access Control", async () => {
         const {

@@ -26,7 +26,7 @@ import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./../interfaces/IStrategy.sol";
 
-contract InterestYieldVault {
+contract LickHitter {
     using SafeERC20 for IERC20;
 
     // Share balances (for each token)
@@ -40,7 +40,7 @@ contract InterestYieldVault {
     // Supported tokens
     mapping(address => bool) private supportedTokens;
 
-    uint256 constant DUST = 10**10;
+    uint256 private constant DUST = 10**10;
     
     // How many tokens should stay inside the Yield Vault at any time
     mapping(address => uint256) private bufferSize;
@@ -87,7 +87,7 @@ contract InterestYieldVault {
         DOMAIN_SEPARATOR = keccak256(
             abi.encode(
                 keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
-                keccak256(bytes("InterestYieldVault")),
+                keccak256(bytes("LickHitter")),
                 keccak256(bytes("1")),
                 block.chainid,
                 address(this)
