@@ -12,6 +12,12 @@ const snapshot = async () => {
     const mockToken = await mockTokenFactory.deploy();
     await mockToken.mint(deployer.address, ethers.utils.parseEther('1000000'));
 
+    const mockStrategyFactory = await ethers.getContractFactory("MockStrategy");
+    const mockStrategy = await mockStrategyFactory.deploy(
+        lickHitter.address,
+        [mockToken.address]
+    );
+
     return {
         lickHitter,
         deployer,
@@ -19,7 +25,8 @@ const snapshot = async () => {
         investor1,
         investor2,
         pokeMe,
-        mockToken
+        mockToken,
+        mockStrategy
     }
 }
 
@@ -182,8 +189,53 @@ describe('LickHitter', () => {
         expect(removeEvent.event).to.eq("TokenRemoved");
         expect(removeEvent.args.token).to.eq(mockToken.address);
     });
-    it.skip("Add/Remove strategy");
-    it.skip("Empty strategy");
+    it("Add/Remove strategy", async () => {
+        const {
+            lickHitter,
+            mockToken,
+            mockStrategy
+        } = await snapshot();
+
+        const addSTx = await lickHitter.addStrategy(mockToken.address, mockStrategy.address);
+        const addSReceipt = await addSTx.wait();
+
+        const event = addSReceipt.events![0];
+        expect(event.event).to.eq("StrategyAdded");
+        expect(event.args.token).to.eq(mockToken.address);
+        expect(event.args.strategy).to.eq(mockStrategy.address);
+
+        const tokenStrategy = await lickHitter.getTokenStrategy(mockToken.address);
+        expect(tokenStrategy).to.eq(mockStrategy.address);
+
+        const removeSTx = await lickHitter.removeStrategy(mockToken.address);
+        const removeSReceipt = await removeSTx.wait();
+
+        const removeEvent = removeSReceipt.events![0];
+        expect(removeEvent.event).to.eq("StrategyRemoved");
+        expect(removeEvent.args.token).to.eq(mockToken.address);
+
+        const tokenStrategy2 = await lickHitter.getTokenStrategy(mockToken.address);
+        expect(tokenStrategy2).to.eq(ethers.constants.AddressZero);
+    });
+    it("Empty strategy", async () => {
+        const {
+            lickHitter,
+            mockToken,
+            mockStrategy
+        } = await snapshot();
+
+        const amount = ethers.utils.parseEther('1');
+        await mockToken.transfer(mockStrategy.address, amount);
+
+        await expect(lickHitter.emptyStrategy(mockToken.address)).to.be.revertedWith("Strategy doesn't exist");
+
+        await lickHitter.addStrategy(mockToken.address, mockStrategy.address);
+
+        await lickHitter.emptyStrategy(mockToken.address);
+
+        const bal = await mockToken.balanceOf(lickHitter.address);
+        expect(bal).to.eq(amount);
+    });
     it.skip("Deposit");
     it.skip("Withdraw");
     it.skip("convertShares");

@@ -26,7 +26,7 @@ interface IStrategy {
 
     function getIsSupportedToken(address _token) external view returns (bool);
 
-    function exit() external;
+    function exit(address _token) external;
 
     function depositToStrategy(address _token, uint256 _amount) external;
 
@@ -35,4 +35,8 @@ interface IStrategy {
     function isLiquid(address _token, uint256 _amount) external view returns (bool);
 
     function harvest(address _token) external;
+
+    function getInvestor() external view returns (address);
+
+    function shouldHarvest(address _token) external view returns (bool);
 }

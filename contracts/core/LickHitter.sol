@@ -135,7 +135,8 @@ contract LickHitter {
     function emptyStrategy(address _token) external onlyOwner {
         // Withdraw all funds from strategy (optional before strategy removal)
         address _strategy = strategies[_token];
-        IStrategy(_strategy).exit();
+        require(_strategy != address(0), "Strategy doesn't exist");
+        IStrategy(_strategy).exit(_token);
     }
 
     function addSupportedToken(address _token, uint256 _bufferSize) external onlyOwner {
@@ -238,6 +239,7 @@ contract LickHitter {
         address _strategy = strategies[_token];
         require(_strategy != address(0), "Strategy doesn't exist");
         // TODO: Maybe use Gelato's check every block aka revert if harvesting is not needed.
+        require(IStrategy(_strategy).shouldHarvest(_token), "Cannot harvest");
 
         // Harvest strategy
         IStrategy(_strategy).harvest(_token);
@@ -344,6 +346,10 @@ contract LickHitter {
 
     function getPendingOwner() external view returns (address) {
         return pendingOwner;
+    }
+
+    function getTokenStrategy(address _token) external view returns (address) {
+        return strategies[_token];
     }
 
     function getTotalShareSupply(address _token) external view returns (uint256) {
