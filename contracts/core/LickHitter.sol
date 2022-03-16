@@ -121,7 +121,7 @@ contract LickHitter {
     }
 
     function addStrategy(address _token, address _strategy) external onlyOwner {
-        require(IStrategy(_strategy).getIsSupportedToken(_token), "Token not supported");
+        require(IStrategy(_strategy).getIsSupportedToken(_token) && supportedTokens[_token], "Token not supported");
 
         strategies[_token] = _strategy;
         emit StrategyAdded(_token, _strategy);

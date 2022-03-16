@@ -3,7 +3,7 @@ import { toUtf8Bytes } from "ethers/lib/utils";
 import { ethers } from "hardhat";
 
 const snapshot = async () => {
-    const [deployer, otherAddress1, investor1, investor2, pokeMe] = await ethers.getSigners();
+    const [deployer, otherAddress1, investor1, investor2, pokeMe, otherStrategyToken] = await ethers.getSigners();
 
     const lickHitterFactory = await ethers.getContractFactory("LickHitter");
     const lickHitter = await lickHitterFactory.deploy(pokeMe.address);
@@ -15,7 +15,7 @@ const snapshot = async () => {
     const mockStrategyFactory = await ethers.getContractFactory("MockStrategy");
     const mockStrategy = await mockStrategyFactory.deploy(
         lickHitter.address,
-        [mockToken.address]
+        [mockToken.address, otherStrategyToken.address]
     );
 
     return {
@@ -26,7 +26,8 @@ const snapshot = async () => {
         investor2,
         pokeMe,
         mockToken,
-        mockStrategy
+        mockStrategy,
+        otherStrategyToken
     }
 }
 
@@ -193,8 +194,21 @@ describe('LickHitter', () => {
         const {
             lickHitter,
             mockToken,
-            mockStrategy
+            mockStrategy,
+            otherAddress1
         } = await snapshot();
+
+        await expect(lickHitter.addStrategy(mockToken.address, mockStrategy.address)).to.be.revertedWith(
+            "Token not supported"
+        );
+
+        await lickHitter.addSupportedToken(otherAddress1.address, 0);
+
+        await expect(lickHitter.addStrategy(otherAddress1.address, mockStrategy.address)).to.be.revertedWith(
+            "Token not supported"
+        );
+
+        await lickHitter.addSupportedToken(mockToken.address, 0);
 
         const addSTx = await lickHitter.addStrategy(mockToken.address, mockStrategy.address);
         const addSReceipt = await addSTx.wait();
@@ -227,6 +241,8 @@ describe('LickHitter', () => {
         const amount = ethers.utils.parseEther('1');
         await mockToken.transfer(mockStrategy.address, amount);
 
+        await lickHitter.addSupportedToken(mockToken.address, 0);
+
         await expect(lickHitter.emptyStrategy(mockToken.address)).to.be.revertedWith("Strategy doesn't exist");
 
         await lickHitter.addStrategy(mockToken.address, mockStrategy.address);
@@ -243,4 +259,31 @@ describe('LickHitter', () => {
     it.skip("Withdraw (signature)");
     it.skip("Share transfer");
     it.skip("Strategy Execution");
+    it("Other Admin Functions", async () => {
+        const {
+            lickHitter,
+            mockToken,
+            otherAddress1,
+            pokeMe,
+            mockStrategy
+        } = await snapshot();
+
+
+        await lickHitter.addSupportedToken(mockToken.address, 0);
+        await lickHitter.addStrategy(mockToken.address, mockStrategy.address);
+
+        await lickHitter.connect(pokeMe).executeStrategy(mockToken.address);
+        await expect(lickHitter.connect(otherAddress1).executeStrategy(mockToken.address)).to.be.revertedWith(
+            "Unauthorized"
+        );
+
+        await lickHitter.changePokeMe(otherAddress1.address);
+
+        await lickHitter.connect(otherAddress1).executeStrategy(mockToken.address);
+        await expect(lickHitter.connect(pokeMe).executeStrategy(mockToken.address)).to.be.revertedWith(
+            "Unauthorized"
+        );
+
+        await lickHitter.changeBufferAmount(mockToken.address, ethers.utils.parseEther("1000"));
+    });
 });
