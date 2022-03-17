@@ -72,26 +72,28 @@ describe('LickHitter', () => {
             deployer
         } = await snapshot();
 
-        const actualDS = await lickHitter.DOMAIN_SEPARATOR();
+        // TODO: Might not need this if tokens go through lending pair first
+        // const actualDS = await lickHitter.DOMAIN_SEPARATOR();
 
-        const coder = new ethers.utils.AbiCoder();
-        const expectedDS = ethers.utils.keccak256(coder.encode(
-            ["bytes32", "bytes32", "bytes32", "uint", "address"],
-            [
-                ethers.utils.keccak256("0x454950373132446f6d61696e28737472696e67206e616d652c737472696e672076657273696f6e2c75696e7432353620636861696e49642c6164647265737320766572696679696e67436f6e747261637429"),
-                ethers.utils.keccak256("0x4c69636b486974746572"),
-                ethers.utils.keccak256("0x31"),
-                31337,
-                lickHitter.address
-            ]
-        ));
+        // const coder = new ethers.utils.AbiCoder();
+        // const expectedDS = ethers.utils.keccak256(coder.encode(
+        //     ["bytes32", "bytes32", "bytes32", "uint", "address"],
+        //     [
+        //         ethers.utils.keccak256("0x454950373132446f6d61696e28737472696e67206e616d652c737472696e672076657273696f6e2c75696e7432353620636861696e49642c6164647265737320766572696679696e67436f6e747261637429"),
+        //         ethers.utils.keccak256("0x4c69636b486974746572"),
+        //         ethers.utils.keccak256("0x31"),
+        //         31337,
+        //         lickHitter.address
+        //     ]
+        // ));
 
-        expect(actualDS).to.eq(expectedDS);
+        // expect(actualDS).to.eq(expectedDS);
 
-        const DEPOSTI_TYPEHASH = await lickHitter.DEPOSIT_TYPEHASH();
-        const WITHDRAW_TYPEHASH = await lickHitter.WITHDRAW_TYPEHASH();
-        expect(DEPOSTI_TYPEHASH).to.eq(ethers.utils.keccak256(toUtf8Bytes("depositWithSignature(address _token,address _payer,address _destination,uint256 _amount,uint256 _nonce,uint256 _deadline)")));
-        expect(WITHDRAW_TYPEHASH).to.eq(ethers.utils.keccak256(toUtf8Bytes("withdrawWithSignature(address _token,address _payer,address _destination,uint256 _shares,uint256 _nonce,uint256 _deadline)")));
+        // TODO: Might not need this if tokens go through lending pair first
+        // const DEPOSTI_TYPEHASH = await lickHitter.DEPOSIT_TYPEHASH();
+        // const WITHDRAW_TYPEHASH = await lickHitter.WITHDRAW_TYPEHASH();
+        // expect(DEPOSTI_TYPEHASH).to.eq(ethers.utils.keccak256(toUtf8Bytes("depositWithSignature(address _token,address _payer,address _destination,uint256 _amount,uint256 _nonce,uint256 _deadline)")));
+        // expect(WITHDRAW_TYPEHASH).to.eq(ethers.utils.keccak256(toUtf8Bytes("withdrawWithSignature(address _token,address _payer,address _destination,uint256 _shares,uint256 _nonce,uint256 _deadline)")));
 
         const getOwner = await lickHitter.getOwner();
         expect(getOwner).to.eq(deployer.address);
