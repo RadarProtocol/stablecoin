@@ -2,6 +2,24 @@ import { expect } from "chai";
 import { toUtf8Bytes } from "ethers/lib/utils";
 import { ethers } from "hardhat";
 
+const deposit = async (
+    depositor: any,
+    lickHitter: any,
+    amount: any,
+    mockToken: any
+) => {
+    await mockToken.transfer(depositor.address, amount);
+    await mockToken.connect(depositor).approve(lickHitter.address, amount);
+
+    const d1tx = await lickHitter.connect(depositor).deposit(
+        mockToken.address,
+        depositor.address,
+        amount
+    );
+    const d1rc = await d1tx.wait();
+    return d1rc;
+}
+
 const snapshot = async () => {
     const [deployer, otherAddress1, investor1, investor2, pokeMe, otherStrategyToken] = await ethers.getSigners();
 
@@ -252,7 +270,61 @@ describe('LickHitter', () => {
         const bal = await mockToken.balanceOf(lickHitter.address);
         expect(bal).to.eq(amount);
     });
-    it.skip("Deposit");
+    it("Deposit", async () => {
+        const {
+            lickHitter,
+            mockToken,
+            investor1,
+            investor2
+        } = await snapshot();
+
+        await lickHitter.addSupportedToken(mockToken.address, 0);
+        const amount1 = ethers.utils.parseEther('10');
+        const amount2 = ethers.utils.parseEther('20');
+
+        const d1rc = await deposit(investor1, lickHitter, amount1, mockToken);
+        const d1event = d1rc.events![2]; // events 0 and 1 are ERC20
+
+        expect(d1event.event).to.eq("Deposit");
+        expect(d1event.args.token).to.eq(mockToken.address);
+        expect(d1event.args.payer).to.eq(investor1.address);
+        expect(d1event.args.receiver).to.eq(investor1.address);
+        expect(d1event.args.amount).to.eq(amount1);
+        expect(d1event.args.sharesMinted).to.eq(amount1);
+
+        const b1 = await lickHitter.balanceOf(mockToken.address, investor1.address);
+        expect(b1).to.eq(amount1);
+        const ts1 = await lickHitter.getTotalShareSupply(mockToken.address);
+        expect(ts1).to.eq(amount1);
+
+        const d2rc = await deposit(investor2, lickHitter, amount2, mockToken);
+        const d2event = d2rc.events![2]; // events 0 and 1 are ERC20
+
+        expect(d2event.event).to.eq("Deposit");
+        expect(d2event.args.token).to.eq(mockToken.address);
+        expect(d2event.args.payer).to.eq(investor2.address);
+        expect(d2event.args.receiver).to.eq(investor2.address);
+        expect(d2event.args.amount).to.eq(amount2);
+        expect(d2event.args.sharesMinted).to.eq(amount2);
+
+        const b2 = await lickHitter.balanceOf(mockToken.address, investor2.address);
+        expect(b2).to.eq(amount2);
+        const ts2 = await lickHitter.getTotalShareSupply(mockToken.address);
+        expect(ts2).to.eq(amount1.add(amount2));
+
+        // Simulate profit (share price should now be 0.5 instead of 1)
+        await mockToken.transfer(lickHitter.address, amount1.add(amount2));
+
+        const sharePrice = await lickHitter.convertShares(mockToken.address, 0, ethers.utils.parseEther('1'));
+        expect(sharePrice).to.eq(ethers.utils.parseEther('0.5'));
+
+        await deposit(investor1, lickHitter, amount1, mockToken);
+        const b3 = await lickHitter.balanceOf(mockToken.address, investor1.address);
+        expect(b3).to.eq(amount1.add(amount1.div(2)));
+        const ts3= await lickHitter.getTotalShareSupply(mockToken.address);
+        expect(ts3).to.eq(amount1.add(amount2).add(amount1.div(2)));
+        
+    });
     it.skip("Withdraw");
     it.skip("convertShares");
     it.skip("Deposit (signature)");
