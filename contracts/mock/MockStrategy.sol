@@ -46,8 +46,8 @@ contract MockStrategy is IStrategy {
         IERC20(_token).safeTransfer(investor, _amount);
     }
 
-    function isLiquid(address, uint256) external view override returns (bool) {
-        return true;
+    function isLiquid(address _token, uint256 _amount) external view override returns (bool) {
+        return IERC20(_token).balanceOf(address(this)) >= _amount;
     }
 
     function harvest(address) external override onlyInvestor {

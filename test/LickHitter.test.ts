@@ -444,17 +444,160 @@ describe('LickHitter', () => {
         const ltb4 = await mockToken.balanceOf(lickHitter.address);
         expect(ltb4).to.eq(0);
     });
-    it.skip("convertShares", async () => {
-        // What happens if token is transferred (aka profit) before deposit
+    it("Withdraw + strategy withdraw", async () => {
+        const {
+            lickHitter,
+            mockToken,
+            investor1,
+            mockStrategy
+        } = await snapshot();
+
+        await lickHitter.addSupportedToken(mockToken.address, ethers.utils.parseEther('5'));
+        await lickHitter.addStrategy(mockToken.address, mockStrategy.address);
+        const amount = ethers.utils.parseEther('10');
+
+        // Deposit
+        await deposit(investor1, lickHitter, amount, mockToken);
+
+        // Deposit to strategy
+        await lickHitter.executeStrategy(mockToken.address);
+        const sbalb = await mockToken.balanceOf(mockStrategy.address);
+        expect(sbalb).to.eq(amount.div(2));
+
+        // Now we should have 5 tokens in lickHitter and 5 tokens in strategy
+        // Withdraw 5 tokens from lickHitter
+        const wr1 = await withdraw(investor1, lickHitter, amount.div(2), mockToken);
+        const w1event = wr1.events![1];
+        expect(wr1.events!.length).to.eq(2);
+        expect(w1event.event).to.eq("Withdraw");
+        expect(w1event.args.token).to.eq(mockToken.address);
+        expect(w1event.args.payer).to.eq(investor1.address);
+        expect(w1event.args.receiver).to.eq(investor1.address);
+        expect(w1event.args.amount).to.eq(amount.div(2));
+        expect(w1event.args.sharesBurned).to.eq(amount.div(2));
+        const b1 = await lickHitter.balanceOf(mockToken.address, investor1.address);
+        expect(b1).to.eq(amount.div(2));
+        const ts1 = await lickHitter.getTotalShareSupply(mockToken.address);
+        expect(ts1).to.eq(amount.div(2));
+        const tb1 = await mockToken.balanceOf(investor1.address);
+        expect(tb1).to.eq(amount.div(2));
+        const ltb1 = await mockToken.balanceOf(lickHitter.address);
+        expect(ltb1).to.eq(0);
+        const sb1 = await mockToken.balanceOf(mockStrategy.address);
+        expect(sb1).to.eq(amount.div(2));
+
+        // Withdraw 5 tokens from strategy
+        const wr2 = await withdraw(investor1, lickHitter, amount.div(2), mockToken);
+        const w2event = wr2.events![2];
+        expect(wr2.events!.length).to.eq(3);
+        expect(w2event.event).to.eq("Withdraw");
+        expect(w2event.args.token).to.eq(mockToken.address);
+        expect(w2event.args.payer).to.eq(investor1.address);
+        expect(w2event.args.receiver).to.eq(investor1.address);
+        expect(w2event.args.amount).to.eq(amount.div(2));
+        expect(w2event.args.sharesBurned).to.eq(amount.div(2));
+        const b2 = await lickHitter.balanceOf(mockToken.address, investor1.address);
+        expect(b2).to.eq(0);
+        const ts2 = await lickHitter.getTotalShareSupply(mockToken.address);
+        expect(ts2).to.eq(0);
+        const tb2 = await mockToken.balanceOf(investor1.address);
+        expect(tb2).to.eq(amount);
+        const ltb2 = await mockToken.balanceOf(lickHitter.address);
+        expect(ltb2).to.eq(0);
+        const sb2 = await mockToken.balanceOf(mockStrategy.address);
+        expect(sb2).to.eq(0);
+    })
+    it("convertShares", async () => {
+        const {
+            lickHitter,
+            mockToken,
+            investor1
+        } = await snapshot();
+
+        await lickHitter.addSupportedToken(mockToken.address, 0);
+
         // Calculate shares
+        // Expected: _share = _amount
+        var result = await lickHitter.convertShares(mockToken.address, 0, 1);
+        expect(result).to.eq(1);
+
         // Calculate amount
-        // Deposit and calculate shares
-        // Deposit and calculate amount
+        // Expected: _share = _amount
+        result = await lickHitter.convertShares(mockToken.address, 1, 0);
+        expect(result).to.eq(1);
+
+        // What happens if token is transferred (aka profit) before deposit
+        // Expected: _share = _amount
+        // but after deposit, it should be profit
+        await mockToken.transfer(lickHitter.address, 5);
+        result = await lickHitter.convertShares(mockToken.address, 1, 0);
+        expect(result).to.eq(1);
+        result = await lickHitter.convertShares(mockToken.address, 0, 1);
+        expect(result).to.eq(1);
+        await deposit(investor1, lickHitter, 5, mockToken);
+        result = await lickHitter.convertShares(mockToken.address, 1, 0);
+        expect(result).to.eq(2);
+        result = await lickHitter.convertShares(mockToken.address, 0, 2);
+        expect(result).to.eq(1);
+        await withdraw(investor1, lickHitter, 5, mockToken);
+        
+        // Deposit and calculate
+        // Expected: _share = _amount
+        await deposit(investor1, lickHitter, 5, mockToken);
+        result = await lickHitter.convertShares(mockToken.address, 1, 0);
+        expect(result).to.eq(1);
+        result = await lickHitter.convertShares(mockToken.address, 0, 1);
+        expect(result).to.eq(1);
+        await withdraw(investor1, lickHitter, 5, mockToken);
+
+        // Deposit and profit and calculate
+        await deposit(investor1, lickHitter, 5, mockToken);
+        await mockToken.transfer(lickHitter.address, 1);
+        result = await lickHitter.convertShares(mockToken.address, 100, 0);
+        expect(result).to.eq(120);
+        result = await lickHitter.convertShares(mockToken.address, 0, 120);
+        expect(result).to.eq(100);
     });
     it.skip("Deposit (signature)");
     it.skip("Withdraw (signature)");
     it.skip("Share transfer");
-    it.skip("Strategy Execution");
+    it("Strategy Execution", async () => {
+        const {
+            lickHitter,
+            mockToken,
+            investor1,
+            mockStrategy,
+            pokeMe
+        } = await snapshot();
+
+        await expect(lickHitter.connect(pokeMe).executeStrategy(mockToken.address)).to.be.revertedWith(
+            "Strategy doesn't exist"
+        );
+
+        await lickHitter.addSupportedToken(mockToken.address, ethers.utils.parseEther('5'));
+
+        await expect(lickHitter.connect(pokeMe).executeStrategy(mockToken.address)).to.be.revertedWith(
+            "Strategy doesn't exist"
+        );
+
+        await lickHitter.addStrategy(mockToken.address, mockStrategy.address);
+        const amount = ethers.utils.parseEther('10');
+
+        // Deposit
+        await deposit(investor1, lickHitter, amount, mockToken);
+
+        // Deposit to strategy
+        await lickHitter.connect(pokeMe).executeStrategy(mockToken.address);
+        const sbalb = await mockToken.balanceOf(mockStrategy.address);
+        expect(sbalb).to.eq(amount.div(2));
+        const lhbalb = await mockToken.balanceOf(lickHitter.address);
+        expect(lhbalb).to.eq(amount.div(2));
+        const totalInvested = await lickHitter.getTotalInvested(mockToken.address);
+        expect(totalInvested).to.eq(amount);
+
+        const tsb = await lickHitter.getTotalShareSupply(mockToken.address);
+        expect(tsb).to.eq(amount);
+    });
     it("Other Admin Functions", async () => {
         const {
             lickHitter,

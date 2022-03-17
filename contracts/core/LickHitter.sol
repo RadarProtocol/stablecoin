@@ -237,7 +237,7 @@ contract LickHitter {
 
     function executeStrategy(address _token) external onlyPokeMe {
         address _strategy = strategies[_token];
-        require(_strategy != address(0), "Strategy doesn't exist");
+        require(_strategy != address(0) && supportedTokens[_token], "Strategy doesn't exist");
         // TODO: Maybe use Gelato's check every block aka revert if harvesting is not needed.
         require(IStrategy(_strategy).shouldHarvest(_token), "Cannot harvest");
 
@@ -249,6 +249,7 @@ contract LickHitter {
         uint256 _bufferSize = bufferSize[_token];
         if (_contractBalance > _bufferSize) {
             uint256 _depositAmount = _contractBalance - _bufferSize;
+            IERC20(_token).safeApprove(_strategy, _depositAmount);
             IStrategy(_strategy).depositToStrategy(_token, _depositAmount);
         }
     }
@@ -324,14 +325,14 @@ contract LickHitter {
     function _convertShares(address _token, uint256 _shares, uint256 _amount) internal view returns (uint256) {
         require((_shares == 0 || _amount == 0) && !(_shares == 0 && _amount == 0), "_shares OR _amount must be 0");
         if (_amount == 0) {
-            return totalShareSupply[_token] != 0 ? (_shares * _tokenTotalBalance(_token)) / totalShareSupply[_token] : 0;
+            // Convert shares to amount
+            return totalShareSupply[_token] != 0 ? (_shares * _tokenTotalBalance(_token)) / totalShareSupply[_token] : _shares;
         }
 
         if (_shares == 0) {
+            // Convert amount to shares
             return totalShareSupply[_token] != 0 ? (_amount * totalShareSupply[_token]) / _tokenTotalBalance(_token) : _amount;
         }
-
-        return 0;
     }
 
     // State Getters
@@ -354,6 +355,10 @@ contract LickHitter {
 
     function getTotalShareSupply(address _token) external view returns (uint256) {
         return totalShareSupply[_token];
+    }
+
+    function getTotalInvested(address _token) external view returns (uint256) {
+        return _tokenTotalBalance(_token);
     }
 
     function getIsSupportedToken(address _token) external view returns (bool) {
