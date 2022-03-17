@@ -181,6 +181,7 @@ contract LickHitter {
         _deposit(_token, msg.sender, _destination, _amount);
     }
 
+    // TODO: Might not need this if tokens go through lending pair first
     function depositWithSignature(
         address _token,
         address _payer,
@@ -209,6 +210,7 @@ contract LickHitter {
         _withdraw(_token, msg.sender, _destination, _shares);
     }
 
+    // TODO: Might not need this if tokens go through lending pair first
     function withdrawWithSignature(
         address _token,
         address _payer,

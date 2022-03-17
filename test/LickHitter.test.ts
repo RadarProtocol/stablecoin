@@ -371,6 +371,10 @@ describe('LickHitter', () => {
         await deposit(investor1, lickHitter, amount1, mockToken);
         await deposit(investor2, lickHitter, amount2, mockToken);
 
+        await expect(lickHitter.connect(investor1).withdraw(mockToken.address, investor1.address, amount2)).to.be.revertedWith(
+            "Not enough funds"
+        );
+
         const w1 = await withdraw(investor1, lickHitter, amount1, mockToken);
         const w1event = w1.events![1];
         expect(w1event.event).to.eq("Withdraw");
@@ -560,7 +564,32 @@ describe('LickHitter', () => {
     });
     it.skip("Deposit (signature)");
     it.skip("Withdraw (signature)");
-    it.skip("Share transfer");
+    it("Share transfer", async () => {
+        const {
+            lickHitter,
+            mockToken,
+            investor1,
+            investor2
+        } = await snapshot();
+
+        await lickHitter.addSupportedToken(mockToken.address, 0);
+        const amount = ethers.utils.parseEther('10');
+
+        await deposit(investor1, lickHitter, amount, mockToken);
+        const bi1 = await lickHitter.balanceOf(mockToken.address, investor1.address);
+        const bii1 = await lickHitter.balanceOf(mockToken.address, investor2.address);
+        expect(bi1).to.eq(amount);
+        expect(bii1).to.eq(0);
+
+        await lickHitter.connect(investor1).transferShares(mockToken.address, investor2.address, amount);
+        
+        const bi2 = await lickHitter.balanceOf(mockToken.address, investor1.address);
+        const bii2 = await lickHitter.balanceOf(mockToken.address, investor2.address);
+        expect(bi2).to.eq(0);
+        expect(bii2).to.eq(amount);
+
+        await withdraw(investor2, lickHitter, amount, mockToken);
+    });
     it("Strategy Execution", async () => {
         const {
             lickHitter,
