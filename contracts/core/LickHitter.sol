@@ -327,7 +327,9 @@ contract LickHitter {
     }
 
     function _convertShares(address _token, uint256 _shares, uint256 _amount) internal view returns (uint256) {
-        require((_shares == 0 || _amount == 0) && !(_shares == 0 && _amount == 0), "_shares OR _amount must be 0");
+        if (_amount == 0 && _shares == 0) {
+            return 0;
+        }
         if (_amount == 0) {
             // Convert shares to amount
             return totalShareSupply[_token] != 0 ? (_shares * _tokenTotalBalance(_token)) / totalShareSupply[_token] : _shares;
@@ -343,6 +345,10 @@ contract LickHitter {
 
     function balanceOf(address _token, address _owner) external view returns (uint256) {
         return balances[_token][_owner];
+    }
+
+    function tokenBalanceOf(address _token, address _owner) external view returns (uint256) {
+        return _convertShares(_token, balances[_token][_owner], 0);
     }
 
     function getOwner() external view returns (address) {

@@ -315,6 +315,8 @@ describe('LickHitter', () => {
         expect(tb1).to.eq(0);
         const ltb1 = await mockToken.balanceOf(lickHitter.address);
         expect(ltb1).to.eq(amount1);
+        const tbof1 = await lickHitter.tokenBalanceOf(mockToken.address, investor1.address);
+        expect(tbof1).to.eq(amount1);
 
         const d2rc = await deposit(investor2, lickHitter, amount2, mockToken);
         const d2event = d2rc.events![2]; // events 0 and 1 are ERC20
@@ -332,6 +334,8 @@ describe('LickHitter', () => {
         expect(tb2).to.eq(0);
         const ltb2 = await mockToken.balanceOf(lickHitter.address);
         expect(ltb2).to.eq(amount1.add(amount2));
+        const tbof2 = await lickHitter.tokenBalanceOf(mockToken.address, investor2.address);
+        expect(tbof2).to.eq(amount2);
 
         // Simulate profit (share price should now be 0.5 instead of 1)
         await mockToken.transfer(lickHitter.address, amount1.add(amount2));
@@ -355,6 +359,8 @@ describe('LickHitter', () => {
         expect(tb3).to.eq(0);
         const ltb3 = await mockToken.balanceOf(lickHitter.address);
         expect(ltb3).to.eq(amount1.mul(3).add(amount2.mul(2)));
+        const tbof3 = await lickHitter.tokenBalanceOf(mockToken.address, investor1.address);
+        expect(tbof3).to.eq(amount1.mul(3));
         
     });
     it("Withdraw", async () => {
@@ -393,6 +399,8 @@ describe('LickHitter', () => {
         expect(tb1).to.eq(amount1);
         const ltb1 = await mockToken.balanceOf(lickHitter.address);
         expect(ltb1).to.eq(amount2);
+        const tbof1 = await lickHitter.tokenBalanceOf(mockToken.address, investor1.address);
+        expect(tbof1).to.eq(0);
 
         const w2 = await withdraw(investor2, lickHitter, amount2, mockToken);
         const w2event = w2.events![1];
@@ -410,6 +418,8 @@ describe('LickHitter', () => {
         expect(tb2).to.eq(amount2);
         const ltb2 = await mockToken.balanceOf(lickHitter.address);
         expect(ltb2).to.eq(0);
+        const tbof2 = await lickHitter.tokenBalanceOf(mockToken.address, investor2.address);
+        expect(tbof2).to.eq(0);
 
         // Deposit again (and profit)
         await deposit(investor1, lickHitter, amount1, mockToken);
@@ -432,6 +442,8 @@ describe('LickHitter', () => {
         expect(tb3).to.eq(amount1.mul(3));
         const ltb3 = await mockToken.balanceOf(lickHitter.address);
         expect(ltb3).to.eq((amount1.add(amount2)).mul(4).div(3));
+        const tbof3 = await lickHitter.tokenBalanceOf(mockToken.address, investor1.address);
+        expect(tbof3).to.eq(0);
 
         const w4 = await withdraw(investor2, lickHitter, amount2, mockToken);
         const w4event = w4.events![1];
@@ -449,6 +461,8 @@ describe('LickHitter', () => {
         expect(tb4).to.eq(amount2.mul(3));
         const ltb4 = await mockToken.balanceOf(lickHitter.address);
         expect(ltb4).to.eq(0);
+        const tbof4 = await lickHitter.tokenBalanceOf(mockToken.address, investor2.address);
+        expect(tbof4).to.eq(0);
     });
     it("Withdraw + strategy withdraw", async () => {
         const {
@@ -491,6 +505,8 @@ describe('LickHitter', () => {
         expect(ltb1).to.eq(0);
         const sb1 = await mockToken.balanceOf(mockStrategy.address);
         expect(sb1).to.eq(amount.div(2));
+        const tbof1 = await lickHitter.tokenBalanceOf(mockToken.address, investor1.address);
+        expect(tbof1).to.eq(amount.div(2));
 
         // Withdraw 5 tokens from strategy
         const wr2 = await withdraw(investor1, lickHitter, amount.div(2), mockToken);
@@ -512,6 +528,8 @@ describe('LickHitter', () => {
         expect(ltb2).to.eq(0);
         const sb2 = await mockToken.balanceOf(mockStrategy.address);
         expect(sb2).to.eq(0);
+        const tbof2 = await lickHitter.tokenBalanceOf(mockToken.address, investor1.address);
+        expect(tbof2).to.eq(0);
     })
     it("convertShares", async () => {
         const {
