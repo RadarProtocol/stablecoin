@@ -263,7 +263,6 @@ contract LickHitter {
     function _deposit(address _token, address _payer, address _destination, uint256 _amount) internal {
         require(supportedTokens[_token], "Token not supported");
 
-        // TODO: Test this is correct
         uint256 _sharesToMint = _convertShares(_token, 0, _amount);
 
         require(_sharesToMint != 0 && _amount != 0, "0 deposit invalid");
@@ -286,7 +285,6 @@ contract LickHitter {
     function _withdraw(address _token, address _payer, address _destination, uint256 _shares) internal {
         require(supportedTokens[_token], "Token not supported");
 
-        // TODO: Test this is correct
         uint256 _amount = _convertShares(_token, _shares, 0);
 
         require(_shares != 0 && _amount != 0, "0 withdraw invalid");
@@ -299,7 +297,6 @@ contract LickHitter {
         address _strategy = strategies[_token];
         if (_strategy != address(0)) {
             if (_amountInVault < _amount) {
-                // TODO: Test this is correct
                 uint256 _amountToWithdraw = _amount - _amountInVault;
 
                 // If we need to withdraw from the strategy, make sure it is liquid
