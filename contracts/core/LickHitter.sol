@@ -179,8 +179,8 @@ contract LickHitter {
     // with the IYV wants, the convertShares
     // function can be used
 
-    function deposit(address _token, address _destination, uint256 _amount) external {
-        _deposit(_token, msg.sender, _destination, _amount);
+    function deposit(address _token, address _destination, uint256 _amount) external returns (uint256) {
+        return _deposit(_token, msg.sender, _destination, _amount);
     }
 
     // TODO: Might not need this if tokens go through lending pair first
@@ -208,8 +208,8 @@ contract LickHitter {
     //     _deposit(_token, _payer, _destination, _amount);
     // }
 
-    function withdraw(address _token, address _destination, uint256 _shares) external {
-        _withdraw(_token, msg.sender, _destination, _shares);
+    function withdraw(address _token, address _destination, uint256 _shares) external returns (uint256) {
+        return _withdraw(_token, msg.sender, _destination, _shares);
     }
 
     // TODO: Might not need this if tokens go through lending pair first
@@ -260,7 +260,7 @@ contract LickHitter {
 
     // Internal Functions
 
-    function _deposit(address _token, address _payer, address _destination, uint256 _amount) internal {
+    function _deposit(address _token, address _payer, address _destination, uint256 _amount) internal returns (uint256) {
         require(supportedTokens[_token], "Token not supported");
 
         uint256 _sharesToMint = _convertShares(_token, 0, _amount);
@@ -280,9 +280,11 @@ contract LickHitter {
             _amount,
             _sharesToMint
         );
+
+        return _sharesToMint;
     }
 
-    function _withdraw(address _token, address _payer, address _destination, uint256 _shares) internal {
+    function _withdraw(address _token, address _payer, address _destination, uint256 _shares) internal returns (uint256) {
         require(supportedTokens[_token], "Token not supported");
 
         uint256 _amount = _convertShares(_token, _shares, 0);
@@ -315,6 +317,8 @@ contract LickHitter {
             _amount,
             _shares
         );
+
+        return _amount;
     }
 
     function _tokenTotalBalance(address _token) internal view returns (uint256) {

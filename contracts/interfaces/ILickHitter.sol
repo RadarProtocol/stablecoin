@@ -61,7 +61,7 @@ interface ILickHitter {
     // with the IYV wants, the convertShares
     // function can be used
 
-    function deposit(address _token, address _destination, uint256 _amount) external;
+    function deposit(address _token, address _destination, uint256 _amount) external returns (uint256);
 
     // TODO: Might not need this if tokens go through lending pair first
     // function depositWithSignature(
@@ -88,7 +88,7 @@ interface ILickHitter {
     //     _deposit(_token, _payer, _destination, _amount);
     // }
 
-    function withdraw(address _token, address _destination, uint256 _shares) external;
+    function withdraw(address _token, address _destination, uint256 _shares) external returns (uint256);
 
     // TODO: Might not need this if tokens go through lending pair first
     // function withdrawWithSignature(
