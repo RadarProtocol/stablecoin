@@ -540,6 +540,10 @@ describe('LickHitter', () => {
 
         await lickHitter.addSupportedToken(mockToken.address, 0);
 
+        await expect(lickHitter.convertShares(mockToken.address, 100, 100)).to.be.revertedWith(
+            "Should never happen: dangerous"
+        )
+
         // Calculate shares
         // Expected: _share = _amount
         var result = await lickHitter.convertShares(mockToken.address, 0, 1);

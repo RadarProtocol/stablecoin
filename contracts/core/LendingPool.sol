@@ -175,6 +175,45 @@ contract LendingPair {
         accumulatedFees = 0;
     }
 
+    function deposit(uint256 _amount) external {
+        _deposit(_amount);
+    }
+
+    function withdraw(uint256 _amount, address _receiver) external {
+        _withdraw(_amount, _receiver);
+        require(_userSafe(msg.sender), "User not safe");
+    }
+
+    function borrow(address _receivingAddress, uint256 _amount) external {
+        _borrow(_receivingAddress, _amount);
+        require(_userSafe(msg.sender), "User not safe");
+    }
+
+    function repay(address _repaymentReceiver, uint256 _amount) external {
+        _repay(_repaymentReceiver, _amount);
+    }
+
+    function depositAndBorrow(
+        uint256 _depositAmount,
+        uint256 _borrowAmount,
+        address _receivingAddress
+    ) external {
+        _deposit(_depositAmount);
+        _borrow(_receivingAddress, _borrowAmount);
+        require(_userSafe(msg.sender), "User not safe");
+    }
+
+    function repayAndWithdraw(
+        uint256 _repayAmount,
+        address _repaymentReceiver,
+        uint256 _withdrawAmount,
+        address _withdrawReceiver
+    ) external {
+        _repay(_repaymentReceiver, _repayAmount);
+        _withdraw(_withdrawAmount, _withdrawReceiver);
+        require(_userSafe(msg.sender), "User not safe");
+    }
+
     // Internal functions
 
     // Use this function to only fetch exchange rate 1 time / TX and save gas
@@ -214,7 +253,7 @@ contract LendingPair {
         emit CollateralAdded(msg.sender, _amount, _sharesMinted);
     }
 
-    function _withdraw(uint256 _amount) internal {
+    function _withdraw(uint256 _amount, address _receiver) internal {
         uint256 _shares = ILickHitter(yieldVault).convertShares(collateral, 0, _amount);
         require(shareBalances[msg.sender] >= _shares, "Insufficient funds");
         // TODO: Maybe make more gas efficient
@@ -222,7 +261,7 @@ contract LendingPair {
             shareBalances[msg.sender] = shareBalances[msg.sender] - _shares;   
         }
         totalShares = totalShares - _shares;
-        ILickHitter(yieldVault).withdraw(collateral, msg.sender, _shares);
+        ILickHitter(yieldVault).withdraw(collateral, _receiver, _shares);
         emit CollateralRemoved(msg.sender, _amount, _shares);
         // TODO: AFTER CALLING THIS, CHECK USER IS SAFE
     }

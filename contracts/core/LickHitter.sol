@@ -330,15 +330,14 @@ contract LickHitter {
     function _convertShares(address _token, uint256 _shares, uint256 _amount) internal view returns (uint256) {
         if (_amount == 0 && _shares == 0) {
             return 0;
-        }
-        if (_amount == 0) {
+        } else if (_amount == 0) {
             // Convert shares to amount
             return totalShareSupply[_token] != 0 ? (_shares * _tokenTotalBalance(_token)) / totalShareSupply[_token] : _shares;
-        }
-
-        if (_shares == 0) {
+        } else if (_shares == 0) {
             // Convert amount to shares
             return totalShareSupply[_token] != 0 ? (_amount * totalShareSupply[_token]) / _tokenTotalBalance(_token) : _amount;
+        } else {
+            revert("Should never happen: dangerous");
         }
     }
 
