@@ -1,5 +1,4 @@
 import { expect } from "chai";
-import { toUtf8Bytes } from "ethers/lib/utils";
 import { ethers } from "hardhat";
 
 const deposit = async (

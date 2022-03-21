@@ -55,7 +55,7 @@ contract LendingPair is ReentrancyGuard {
     uint256 public RADAR_LIQUIDATION_FEE;
     uint256 public constant GENERAL_DIVISOR = 10000;
     address public FEE_RECEIVER;
-    uint256 public accumulatedFees;
+    uint256 private accumulatedFees;
 
     uint256 public MAX_LTV;
 
