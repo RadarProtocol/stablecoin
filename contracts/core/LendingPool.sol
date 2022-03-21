@@ -24,12 +24,14 @@ pragma solidity ^0.8.2;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./../interfaces/ILickHitter.sol";
 import "./../interfaces/ILendingPair.sol";
 import "./../interfaces/ITheStableMoney.sol";
 import "./../interfaces/IOracle.sol";
+import "./../interfaces/ILiquidator.sol";
 
-contract LendingPair {
+contract LendingPair is ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     bool public initialized = false;
@@ -49,6 +51,8 @@ contract LendingPair {
 
     uint256 public ENTRY_FEE;
     uint256 public EXIT_FEE;
+    uint256 public LIQUIDATION_INCENTIVE;
+    uint256 public RADAR_LIQUIDATION_FEE;
     uint256 public constant GENERAL_DIVISOR = 10000;
     address public FEE_RECEIVER;
     uint256 public accumulatedFees;
@@ -65,6 +69,7 @@ contract LendingPair {
     event FeesClaimed(uint256 amount, uint256 shares);
     event AssetBorrowed(address indexed owner, uint256 borrowAmount, address indexed receiver);
     event LoanRepaid(address indexed owner, uint256 repayAmount, address indexed receiver);
+    event Liquidated(address indexed user, address indexed liquidator, uint256 repayAmount, uint256 collateralLiquidated);
 
     modifier onlyOwner {
         address impl;
@@ -101,6 +106,8 @@ contract LendingPair {
         address _lendAsset,
         uint256 _entryFee,
         uint256 _exitFee,
+        uint256 _liquidationIncentive,
+        uint256 _radarLiqFee,
         address _yieldVault,
         address _feeReceiver,
         uint256 _maxLTV,
@@ -121,6 +128,8 @@ contract LendingPair {
         lendAsset = _lendAsset;
         ENTRY_FEE = _entryFee;
         EXIT_FEE = _exitFee;
+        LIQUIDATION_INCENTIVE = _liquidationIncentive;
+        RADAR_LIQUIDATION_FEE = _radarLiqFee;
         yieldVault = _yieldVault;
         FEE_RECEIVER = _feeReceiver;
         MAX_LTV = _maxLTV;
@@ -160,9 +169,11 @@ contract LendingPair {
         MAX_LTV = _newMax;
     }
 
-    function changeFees(uint256 _entryFee, uint256 _exitFee) external onlyOwner {
+    function changeFees(uint256 _entryFee, uint256 _exitFee, uint256 _liquidationIncentive, uint256 _radarLiqFee) external onlyOwner {
         ENTRY_FEE = _entryFee;
         EXIT_FEE = _exitFee;
+        LIQUIDATION_INCENTIVE = _liquidationIncentive;
+        RADAR_LIQUIDATION_FEE = _radarLiqFee;
     }
 
     // User functions
@@ -212,6 +223,74 @@ contract LendingPair {
         _repay(_repaymentReceiver, _repayAmount);
         _withdraw(_withdrawAmount, _withdrawReceiver);
         require(_userSafe(msg.sender), "User not safe");
+    }
+
+
+    // Not-reentrant for extra safety
+    // The `_liquidator` must implement the
+    // ILiquidator interface
+    // _repayAmounts in USDR
+    function liquidate(
+        address[] calldata _users,
+        uint256[] calldata _repayAmounts,
+        address _liquidator
+    ) external nonReentrant {
+        require(_users.length == _repayAmounts.length, "Invalid data");
+        uint256 _exchangeRate = _getExchangeRate();
+
+        uint256 _totalCollateralLiquidated;
+        uint256 _totalRepayRequired;
+
+        for(uint256 i = 0; i < _users.length; i++) {
+            address _user = _users[i];
+            if(!_userSafe(_user)) {
+                uint256 _repayAmount = borrows[_user] < _repayAmounts[i] ? borrows[_user] : _repayAmounts[i];
+                totalBorrowed = totalBorrowed - _repayAmount;
+                borrows[_user] = borrows[_user] - _repayAmount;
+                
+                // Collateral removed is collateral of _repayAmount value + liquidation/finder fee
+                // Calculate total collateral to be removed in stablecoin
+                // TODO: TEST THIS IS CORRECT
+                uint256 _collateralRemoved = (_repayAmount + ((LIQUIDATION_INCENTIVE * _repayAmount) / GENERAL_DIVISOR));
+                // Convert to actual collateral
+                // TODO: TEST THIS IS CORRECT
+                _collateralRemoved = (_collateralRemoved * 10**collateralDecimals) / _exchangeRate;
+
+                shareBalances[_user] = shareBalances[_user] - ILickHitter(yieldVault).convertShares(collateral, 0, _collateralRemoved);
+
+                _totalCollateralLiquidated = _totalCollateralLiquidated + _collateralRemoved;
+                _totalRepayRequired = _totalRepayRequired + _repayAmount;
+
+                emit Liquidated(
+                    _user,
+                    msg.sender,
+                    _repayAmount,
+                    _collateralRemoved
+                );
+            }
+            require(_totalCollateralLiquidated > 0 && _totalRepayRequired > 0, "Liquidate none");
+            // TODO: TEST THIS IS CORRECT
+            uint256 _radarFee = (_totalRepayRequired * LIQUIDATION_INCENTIVE * RADAR_LIQUIDATION_FEE) / (GENERAL_DIVISOR ** 2);
+            accumulatedFees = accumulatedFees + _radarFee;
+            _totalRepayRequired = _totalRepayRequired + _radarFee;
+
+            // Send user his collateral
+            uint256 _collShares = ILickHitter(yieldVault).convertShares(collateral, 0, _totalCollateralLiquidated);
+            ILickHitter(yieldVault).withdraw(collateral, _liquidator, _collShares);
+
+            // Perform Liquidation
+            ILiquidator(_liquidator).liquidateHook(
+                collateral,
+                msg.sender,
+                _totalRepayRequired,
+                _totalCollateralLiquidated
+            );
+
+            // Get the stablecoin and deposit to vault
+            IERC20(lendAsset).safeTransferFrom(_liquidator, address(this), _totalRepayRequired);
+            IERC20(lendAsset).safeApprove(yieldVault, _totalRepayRequired);
+            ILickHitter(yieldVault).deposit(lendAsset, address(this), _totalRepayRequired);
+        }
     }
 
     // Internal functions
