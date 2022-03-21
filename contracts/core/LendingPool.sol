@@ -225,6 +225,11 @@ contract LendingPair is ReentrancyGuard {
         require(_userSafe(msg.sender), "User not safe");
     }
 
+    function leverage() external {
+        // TODO: Implement
+        require(_userSafe(msg.sender), "User not safe");
+    }
+
 
     // Not-reentrant for extra safety
     // The `_liquidator` must implement the
@@ -342,7 +347,6 @@ contract LendingPair is ReentrancyGuard {
         totalShares = totalShares - _shares;
         ILickHitter(yieldVault).withdraw(collateral, _receiver, _shares);
         emit CollateralRemoved(msg.sender, _amount, _shares);
-        // TODO: AFTER CALLING THIS, CHECK USER IS SAFE
     }
 
     function _borrow(address _receiver, uint256 _amount) internal {
@@ -357,8 +361,6 @@ contract LendingPair is ReentrancyGuard {
         ILickHitter(yieldVault).withdraw(lendAsset, _receiver, _sharesWithdraw);
 
         emit AssetBorrowed(msg.sender, _borrowAmount, _receiver);
-
-        // TODO: AFTER CALLING THIS, CHECK USER IS SAFE
     }
 
     function _repay(address _receiver, uint256 _amount) internal {
@@ -424,7 +426,7 @@ contract LendingPair is ReentrancyGuard {
 
     function availableToBorrow() external view returns (uint256) {
         uint256 _myShares = ILickHitter(yieldVault).balanceOf(lendAsset, address(this));
-        return ILickHitter(yieldVault).convertShares(lendAsset, _myShares, 0);
+        return ILickHitter(yieldVault).convertShares(lendAsset, _myShares, 0) - accumulatedFees;
     }
 
 }

@@ -1,5 +1,9 @@
+import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { expect } from "chai";
 import { ethers } from "hardhat";
+import { LendingPair } from "../typechain";
+
+const DUST = ethers.utils.parseEther('0.0001');
 
 const snapshot = async () => {
     const [deployer, otherAddress1, investor1, investor2, feeReceiver] = await ethers.getSigners();
@@ -52,6 +56,33 @@ const snapshot = async () => {
         masterContract,
         lendingPair
     }
+}
+
+const addStablecoinToLending = async (
+    stablecoin: any,
+    yieldVault: any,
+    lendingPair: any,
+    amount: any,
+    deployer: any
+) => {
+    await stablecoin.mint(deployer.address, amount);
+    await stablecoin.approve(yieldVault.address, amount);
+    await yieldVault.deposit(stablecoin.address, lendingPair.address, amount);
+}
+
+const deposit = async (
+    investor: any,
+    lendingPair: any,
+    collateral: any,
+    amount: any
+) => {
+    await collateral.mint(investor.address, amount);
+    await collateral.connect(investor).approve(lendingPair.address, amount);
+
+    const tx = await lendingPair.connect(investor).deposit(amount);
+    const receipt = await tx.wait();
+
+    return receipt;
 }
 
 describe("Lending Pair", () => {
@@ -298,4 +329,198 @@ describe("Lending Pair", () => {
         const ysbal2 = await yieldVault.balanceOf(stablecoin.address, lendingPair.address);
         expect(ts2).to.eq(atb2).to.eq(ysbal2).to.eq(0);
     });
+    it("Deposit", async () => {
+        const {
+            lendingPair,
+            investor1,
+            investor2,
+            collateral,
+            yieldVault
+        } = await snapshot();
+
+        const amount1 = ethers.utils.parseEther('50');
+        const amount2 = ethers.utils.parseEther('100');
+
+        const userBal1 = await lendingPair.getCollateralBalance(investor1.address);
+        const totalCol1 = await lendingPair.getTotalCollateralDeposited();
+        expect(userBal1).to.eq(0);
+        expect(totalCol1).to.eq(0);
+
+        const rc1 = await deposit(investor1, lendingPair, collateral, amount1);
+        const e1 = rc1.events![rc1.events!.length-1];
+        expect(e1.event).to.eq("CollateralAdded");
+        expect(e1.args!.owner).to.eq(investor1.address);
+        expect(e1.args!.amount).to.eq(amount1);
+        expect(e1.args!.shares).to.eq(amount1); // No yield farming, so shares = amount
+
+        const userBal2 = await lendingPair.getCollateralBalance(investor1.address);
+        const totalCol2 = await lendingPair.getTotalCollateralDeposited();
+        expect(userBal2).to.eq(amount1);
+        expect(totalCol2).to.eq(amount1);
+
+        const rc2 = await deposit(investor2, lendingPair, collateral, amount2);
+        const e2 = rc2.events![rc2.events!.length-1];
+        expect(e2.event).to.eq("CollateralAdded");
+        expect(e2.args!.owner).to.eq(investor2.address);
+        expect(e2.args!.amount).to.eq(amount2);
+        expect(e2.args!.shares).to.eq(amount2); // No yield farming, so shares = amount
+
+        const userBal3 = await lendingPair.getCollateralBalance(investor2.address);
+        const totalCol3 = await lendingPair.getTotalCollateralDeposited();
+        expect(userBal3).to.eq(amount2);
+        expect(totalCol3).to.eq(amount1.add(amount2));
+
+        const contractMoney = await collateral.balanceOf(lendingPair.address);
+        expect(contractMoney).to.eq(0);
+        const contractShare = await yieldVault.balanceOf(collateral.address, lendingPair.address);
+        expect(contractShare).to.eq(amount1.add(amount2));
+
+        const af1 = await collateral.balanceOf(investor1.address);
+        const af2 = await collateral.balanceOf(investor2.address);
+        const af3 = await collateral.balanceOf(yieldVault.address);
+        expect(af1).to.eq(af2).to.eq(0);
+        expect(af3).to.eq(amount1.add(amount2));
+    });
+    // TODO: WRITE THIS TEST
+    it.skip("Withdraw");
+    it("Borrow", async () => {
+        const {
+            lendingPair,
+            investor1,
+            investor2,
+            collateral,
+            stablecoin,
+            yieldVault,
+            deployer,
+            mockOracle
+        } = await snapshot();
+
+        const borrowChecks = async (
+            e1: any,
+            e2: any,
+            i1: SignerWithAddress,
+            i2: SignerWithAddress,
+            lp: LendingPair,
+            vc: Array<any>
+        ) => {
+            var i = 0;
+            if (e1 != null) {
+                expect(e1.event).to.eq(vc[i++]);
+                expect(e1.args!.owner).to.eq(vc[i++]);
+                expect(e1.args!.borrowAmount).to.eq(vc[i++]);
+                expect(e1.args!.receiver).to.eq(vc[i++]);
+            }
+            if (e2 != null) {
+                expect(e2.event).to.eq(vc[i++]);
+                expect(e2.args!.owner).to.eq(vc[i++]);
+                expect(e2.args!.borrowAmount).to.eq(vc[i++]);
+                expect(e2.args!.receiver).to.eq(vc[i++]);
+            }
+
+            const u1sb = await stablecoin.balanceOf(i1.address);
+            const u2sb = await stablecoin.balanceOf(i2.address);
+            expect(u1sb).to.eq(vc[i++]);
+            expect(u2sb).to.eq(vc[i++]);
+
+            const tb = await lendingPair.getTotalBorrowed();
+            expect(tb).to.eq(vc[i++]);
+
+            const gub1 = await lendingPair.getUserBorrow(i1.address);
+            const gub2 = await lendingPair.getUserBorrow(i2.address);
+            expect(gub1).to.eq(vc[i++]);
+            expect(gub2).to.eq(vc[i++]);
+
+            const a2b = await lendingPair.availableToBorrow();
+            expect(a2b).to.eq(vc[i++]);
+        }
+
+        const collateralAmount1 = ethers.utils.parseEther('50');
+        const collateralAmount2 = ethers.utils.parseEther('100');
+        var borrowAmount1 = collateralAmount1.mul(2).mul(9200).div(10000);
+        var borrowAmount2 = collateralAmount2.mul(2).mul(9200).div(10000);
+
+        const totalAdded = ethers.utils.parseEther('100000');
+
+        await addStablecoinToLending(
+            stablecoin,
+            yieldVault,
+            lendingPair,
+            totalAdded,
+            deployer
+        );
+
+        await expect(lendingPair.connect(investor1).borrow(investor1.address, borrowAmount1)).to.be.revertedWith("User not safe");
+        await expect(lendingPair.connect(investor2).borrow(investor2.address, borrowAmount2)).to.be.revertedWith("User not safe");
+
+        await deposit(investor1, lendingPair, collateral, collateralAmount1);
+        await deposit(investor2, lendingPair, collateral, collateralAmount2);
+
+        await expect(lendingPair.connect(investor1).borrow(investor1.address, borrowAmount1)).to.be.revertedWith("User not safe");
+        await expect(lendingPair.connect(investor2).borrow(investor2.address, borrowAmount2)).to.be.revertedWith("User not safe");
+
+        // We should be right at LTV here (including fee)
+        borrowAmount1 = borrowAmount1.mul(100).div(101).sub(2);
+        borrowAmount2 = borrowAmount2.mul(100).div(101).sub(2);
+        var borrowAmount1Fee = borrowAmount1.div(100);
+        var borrowAmount2Fee = borrowAmount2.div(100);
+
+        const btx1 = await lendingPair.connect(investor1).borrow(investor1.address, borrowAmount1);
+        const brc1 = await btx1.wait();
+        const be1 = brc1.events![brc1.events!.length-1];
+
+        await borrowChecks(
+            be1,
+            null,
+            investor1,
+            investor2,
+            lendingPair,
+            [
+                "AssetBorrowed", // Event name
+                investor1.address, // Loan owner
+                borrowAmount1.add(borrowAmount1Fee), // Total Borrowed
+                investor1.address, // Loan receiver
+                borrowAmount1, // Stablecoin got from loan (i1)
+                0,  // Stablecoin got from loan (i2)
+                borrowAmount1.add(borrowAmount1Fee), // Total Borrowed
+                borrowAmount1.add(borrowAmount1Fee), // User borrowed (i1)
+                0, // User borrowed (i2)
+                totalAdded.sub(borrowAmount1).sub(borrowAmount1Fee) // Left available to borrow
+            ]
+        );
+        
+        const btx2 = await lendingPair.connect(investor2).borrow(investor2.address, borrowAmount2);
+        const brc2 = await btx2.wait();
+        const be2 = brc2.events![brc2.events!.length-1];
+        
+        await borrowChecks(
+            be2,
+            null,
+            investor1,
+            investor2,
+            lendingPair,
+            [
+                "AssetBorrowed", // Event name
+                investor2.address, // Loan owner
+                borrowAmount2.add(borrowAmount2Fee), // Total Borrowed
+                investor2.address, // Loan receiver
+                borrowAmount1, // Stablecoin got from loan (i1)
+                borrowAmount2,  // Stablecoin got from loan (i2)
+                borrowAmount1.add(borrowAmount1Fee).add(borrowAmount2).add(borrowAmount2Fee), // Total Borrowed
+                borrowAmount1.add(borrowAmount1Fee), // User borrowed (i1)
+                borrowAmount2.add(borrowAmount2Fee), // User borrowed (i2)
+                totalAdded.sub(borrowAmount1).sub(borrowAmount1Fee).sub(borrowAmount2).sub(borrowAmount2Fee) // Left available to borrow
+            ]
+        );
+
+        await expect(lendingPair.connect(investor1).borrow(investor1.address, DUST)).to.be.revertedWith("User not safe");
+        await expect(lendingPair.connect(investor2).borrow(investor2.address, DUST)).to.be.revertedWith("User not safe");
+
+        await expect(lendingPair.connect(investor1).withdraw(DUST, investor1.address)).to.be.revertedWith("User not safe");
+        await expect(lendingPair.connect(investor2).withdraw(DUST, investor1.address)).to.be.revertedWith("User not safe");
+    });
+    it.skip("Deposit and Borrow");
+    it.skip("Repay");
+    it.skip("Repay and Withdraw");
+    it.skip("Liquidate");
+    it.skip("Fees");
 });
