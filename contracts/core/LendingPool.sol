@@ -422,4 +422,9 @@ contract LendingPair is ReentrancyGuard {
         return ILickHitter(yieldVault).convertShares(lendAsset, 0, accumulatedFees);
     }
 
+    function availableToBorrow() external view returns (uint256) {
+        uint256 _myShares = ILickHitter(yieldVault).balanceOf(lendAsset, address(this));
+        return ILickHitter(yieldVault).convertShares(lendAsset, _myShares, 0);
+    }
+
 }

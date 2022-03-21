@@ -128,6 +128,8 @@ describe("Lending Pair", () => {
         expect(totalBorr).to.eq(0);
         const uF = await lendingPair.unclaimedFees();
         expect(uF).to.eq(0);
+        const atb = await lendingPair.availableToBorrow();
+        expect(atb).to.eq(0);
     });
     it("Owner - master/proxy", async () => {
         const {
@@ -271,5 +273,29 @@ describe("Lending Pair", () => {
         expect(l).to.eq(3);
         expect(r).to.eq(4);
     });
-    it.skip("burn stablecoin");
+    it("burn stablecoin", async () => {
+        const {
+            lendingPair,
+            stablecoin,
+            yieldVault,
+            deployer
+        } = await snapshot();
+
+        const amount = ethers.utils.parseEther('1000000');
+        await stablecoin.mint(deployer.address, amount);
+        await stablecoin.approve(yieldVault.address, amount);
+        await yieldVault.deposit(stablecoin.address, lendingPair.address, amount);
+
+        const ts1 = await stablecoin.totalSupply();
+        const atb1 = await lendingPair.availableToBorrow();
+        const ysbal1 = await yieldVault.balanceOf(stablecoin.address, lendingPair.address);
+        expect(ts1).to.eq(atb1).to.eq(ysbal1).to.eq(amount);
+
+        await lendingPair.burnStablecoin(amount);
+
+        const ts2 = await stablecoin.totalSupply();
+        const atb2 = await lendingPair.availableToBorrow();
+        const ysbal2 = await yieldVault.balanceOf(stablecoin.address, lendingPair.address);
+        expect(ts2).to.eq(atb2).to.eq(ysbal2).to.eq(0);
+    });
 });

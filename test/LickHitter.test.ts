@@ -173,8 +173,8 @@ describe('LickHitter', () => {
         const event = receipt.events![0];
 
         expect(event.event).to.eq('OwnershipTransferred');
-        expect(event.args.oldOwner).to.eq(deployer.address);
-        expect(event.args.newOwner).to.eq(otherAddress1.address);
+        expect(event.args!.oldOwner).to.eq(deployer.address);
+        expect(event.args!.newOwner).to.eq(otherAddress1.address);
 
         const getPendingOwnerCall2 = await lickHitter.getPendingOwner();
         const getOwnerCall = await lickHitter.getOwner();
@@ -206,8 +206,8 @@ describe('LickHitter', () => {
         expect(getIsSup1).to.eq(true);
 
         expect(addEvent.event).to.eq("TokenAdded");
-        expect(addEvent.args.token).to.eq(mockToken.address);
-        expect(addEvent.args.bufferSize).to.eq(ethers.utils.parseEther("10"));
+        expect(addEvent.args!.token).to.eq(mockToken.address);
+        expect(addEvent.args!.bufferSize).to.eq(ethers.utils.parseEther("10"));
 
         const removeReceipt = await lickHitter.removeSupportedToken(mockToken.address);
         const removeTx = await removeReceipt.wait();
@@ -222,7 +222,7 @@ describe('LickHitter', () => {
         expect(getIsSup2).to.eq(false);
 
         expect(removeEvent.event).to.eq("TokenRemoved");
-        expect(removeEvent.args.token).to.eq(mockToken.address);
+        expect(removeEvent.args!.token).to.eq(mockToken.address);
     });
     it("Add/Remove strategy", async () => {
         const {
@@ -249,8 +249,8 @@ describe('LickHitter', () => {
 
         const event = addSReceipt.events![0];
         expect(event.event).to.eq("StrategyAdded");
-        expect(event.args.token).to.eq(mockToken.address);
-        expect(event.args.strategy).to.eq(mockStrategy.address);
+        expect(event.args!.token).to.eq(mockToken.address);
+        expect(event.args!.strategy).to.eq(mockStrategy.address);
 
         const tokenStrategy = await lickHitter.getTokenStrategy(mockToken.address);
         expect(tokenStrategy).to.eq(mockStrategy.address);
@@ -260,7 +260,7 @@ describe('LickHitter', () => {
 
         const removeEvent = removeSReceipt.events![0];
         expect(removeEvent.event).to.eq("StrategyRemoved");
-        expect(removeEvent.args.token).to.eq(mockToken.address);
+        expect(removeEvent.args!.token).to.eq(mockToken.address);
 
         const tokenStrategy2 = await lickHitter.getTokenStrategy(mockToken.address);
         expect(tokenStrategy2).to.eq(ethers.constants.AddressZero);
