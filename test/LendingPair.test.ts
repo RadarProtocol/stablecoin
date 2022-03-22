@@ -1,7 +1,8 @@
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { expect } from "chai";
+import { BigNumber } from "ethers";
 import { ethers } from "hardhat";
-import { LendingPair } from "../typechain";
+import { LendingPair, LickHitter, TheStableMoney } from "../typechain";
 
 const DUST = ethers.utils.parseEther('0.0001');
 
@@ -59,11 +60,11 @@ const snapshot = async () => {
 }
 
 const addStablecoinToLending = async (
-    stablecoin: any,
-    yieldVault: any,
-    lendingPair: any,
-    amount: any,
-    deployer: any
+    stablecoin: TheStableMoney,
+    yieldVault: LickHitter,
+    lendingPair: LendingPair,
+    amount: BigNumber,
+    deployer: SignerWithAddress
 ) => {
     await stablecoin.mint(deployer.address, amount);
     await stablecoin.approve(yieldVault.address, amount);
@@ -381,8 +382,130 @@ describe("Lending Pair", () => {
         expect(af1).to.eq(af2).to.eq(0);
         expect(af3).to.eq(amount1.add(amount2));
     });
-    // TODO: WRITE THIS TEST
-    it.skip("Withdraw");
+    it("Withdraw", async () => {
+        const {
+            lendingPair,
+            investor1,
+            investor2,
+            collateral,
+            yieldVault
+        } = await snapshot();
+
+        const withdrawChecks = async (
+            e: any,
+            i1: SignerWithAddress,
+            i2: SignerWithAddress,
+            lp: LendingPair,
+            cl: TheStableMoney,
+            yv: LickHitter,
+            vc: Array<any>
+        ) => {
+            var i = 0;
+            if (e != null) {
+                expect(e.event).to.eq(vc[i++]);
+                expect(e.args!.owner).to.eq(vc[i++]);
+                expect(e.args!.amount).to.eq(vc[i++]);
+                expect(e.args!.shares).to.eq(vc[i++]);
+            }
+
+            const u1cb = await cl.balanceOf(i1.address);
+            const u2cb = await cl.balanceOf(i2.address);
+            expect(u1cb).to.eq(vc[i++]);
+            expect(u2cb).to.eq(vc[i++]);
+
+            const u1sb = await lp.getCollateralBalance(i1.address);
+            const u2sb = await lp.getCollateralBalance(i2.address);
+            expect(u1sb).to.eq(vc[i++]);
+            expect(u2sb).to.eq(vc[i++]);
+
+            const tcd = await lp.getTotalCollateralDeposited();
+            expect(tcd).to.eq(vc[i++]);
+
+            const pairBal = await yv.balanceOf(cl.address, lp.address);
+            expect(pairBal).to.eq(vc[i++]);
+        };
+        
+        const amount1 = ethers.utils.parseEther('50');
+        const amount2 = ethers.utils.parseEther('100');
+
+        await deposit(investor1, lendingPair, collateral, amount1);
+        await deposit(investor2, lendingPair, collateral, amount2);
+
+        const wtx1 = await lendingPair.connect(investor1).withdraw(amount1, investor1.address);
+        const wrc1 = await wtx1.wait();
+        const wevent1 = wrc1.events![wrc1.events!.length-1];
+        await withdrawChecks(
+            wevent1,
+            investor1,
+            investor2,
+            lendingPair,
+            collateral,
+            yieldVault,
+            [
+                "CollateralRemoved", // Event name
+                investor1.address, // Withdraw owner
+                amount1, // Amount to withdraw
+                amount1, // Shares burned from yieldVault, no profit => same as amount
+                amount1, // Wallet collateral balance of inv1
+                0, // Wallet collateral balance of i2
+                0, // Collateral in lending inv1
+                amount2, // Collateral in lending inv2
+                amount2, // Total collateral in lending
+                amount2 // Shares of collateral in yieldVault owned by lendingPair
+            ]
+        );
+
+        // Withdraw half of inv2 into his address
+        const wtx2 = await lendingPair.connect(investor2).withdraw(amount2.div(2), investor2.address);
+        const wrc2 = await wtx2.wait();
+        const wevent2 = wrc2.events![wrc2.events!.length-1];
+        await withdrawChecks(
+            wevent2,
+            investor1,
+            investor2,
+            lendingPair,
+            collateral,
+            yieldVault,
+            [
+                "CollateralRemoved", // Event name
+                investor2.address, // Withdraw owner
+                amount2.div(2), // Amount to withdraw
+                amount2.div(2), // Shares burned from yieldVault, no profit => same as amount
+                amount1, // Wallet collateral balance of inv1
+                amount2.div(2), // Wallet collateral balance of i2
+                0, // Collateral in lending inv1
+                amount2.div(2), // Collateral in lending inv2
+                amount2.div(2), // Total collateral in lending
+                amount2.div(2) // Shares of collateral in yieldVault owned by lendingPair
+            ]
+        );
+
+        // Withdraw rest of inv2 into inv1 address
+        // Withdraw half of inv2 into his address
+        const wtx3 = await lendingPair.connect(investor2).withdraw(amount2.div(2), investor1.address);
+        const wrc3 = await wtx3.wait();
+        const wevent3 = wrc3.events![wrc3.events!.length-1];
+        await withdrawChecks(
+            wevent3,
+            investor1,
+            investor2,
+            lendingPair,
+            collateral,
+            yieldVault,
+            [
+                "CollateralRemoved", // Event name
+                investor2.address, // Withdraw owner
+                amount2.div(2), // Amount to withdraw
+                amount2.div(2), // Shares burned from yieldVault, no profit => same as amount
+                amount1.add(amount2.div(2)), // Wallet collateral balance of inv1
+                amount2.div(2), // Wallet collateral balance of i2
+                0, // Collateral in lending inv1
+                0, // Collateral in lending inv2
+                0, // Total collateral in lending
+                0 // Shares of collateral in yieldVault owned by lendingPair
+            ]
+        );
+    });
     it("Borrow", async () => {
         const {
             lendingPair,
@@ -523,4 +646,5 @@ describe("Lending Pair", () => {
     it.skip("Repay and Withdraw");
     it.skip("Liquidate");
     it.skip("Fees");
+    it.skip("Collateral increasing in value");
 });
