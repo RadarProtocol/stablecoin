@@ -641,8 +641,193 @@ describe("Lending Pair", () => {
         await expect(lendingPair.connect(investor1).withdraw(DUST, investor1.address)).to.be.revertedWith("User not safe");
         await expect(lendingPair.connect(investor2).withdraw(DUST, investor1.address)).to.be.revertedWith("User not safe");
     });
+    it("Repay", async () => {
+        const {
+            lendingPair,
+            investor1,
+            investor2,
+            collateral,
+            stablecoin,
+            yieldVault,
+            deployer
+        } = await snapshot();
+
+        const repayChecks = async (
+            e: any,
+            i1: SignerWithAddress,
+            i2: SignerWithAddress,
+            lp: LendingPair,
+            sb: TheStableMoney,
+            vc: Array<any>
+        ) => {
+            var i = 0;
+            if (e != null) {
+                expect(e.event).to.eq(vc[i++]);
+                expect(e.args!.owner).to.eq(vc[i++]);
+                expect(e.args!.repayAmount).to.eq(vc[i++]);
+                expect(e.args!.receiver).to.eq(vc[i++]);
+            }
+
+            if (vc[i++]) {
+                await lp.connect(i1).withdraw(DUST, i1.address);
+            } else {
+                await expect(lp.connect(i1).withdraw(DUST, i1.address)).to.be.revertedWith("User not safe");
+            }
+
+            if (vc[i++]) {
+                await lp.connect(i2).withdraw(DUST, i2.address);
+            } else {
+                await expect(lp.connect(i2).withdraw(DUST, i2.address)).to.be.revertedWith("User not safe");
+            }
+
+            const ub1 = await lp.getUserBorrow(i1.address);
+            const ub2 = await lp.getUserBorrow(i2.address);
+            expect(ub1).to.eq(vc[i++]);
+            expect(ub2).to.eq(vc[i++]);
+
+            const tb = await lp.getTotalBorrowed();
+            expect(tb).to.eq(vc[i++]);
+            const atb = await lp.availableToBorrow();
+            expect(atb).to.eq(vc[i++]);
+
+            const sbb1 = await sb.balanceOf(i1.address);
+            const sbb2 = await sb.balanceOf(i2.address);
+            expect(sbb1).to.eq(vc[i++]);
+            expect(sbb2).to.eq(vc[i++])
+        }
+
+        const totalAdded = ethers.utils.parseEther('100000');
+
+        await addStablecoinToLending(
+            stablecoin,
+            yieldVault,
+            lendingPair,
+            totalAdded,
+            deployer
+        );
+
+        // Cannot repay an empty loan
+        await stablecoin.mint(investor1.address, ethers.utils.parseEther('1'));
+        await stablecoin.connect(investor1).approve(lendingPair.address, ethers.utils.parseEther('1'));
+        await expect(lendingPair.connect(investor1).repay(investor1.address, ethers.utils.parseEther('0.5'))).to.be.revertedWith(
+            "reverted with panic code 0x11 (Arithmetic operation underflowed or overflowed outside of an unchecked block)"
+        );
+        await stablecoin.connect(investor1).burn(ethers.utils.parseEther('1'));
+
+        const collateralAmount1 = ethers.utils.parseEther('50');
+        const collateralAmount2 = ethers.utils.parseEther('100');
+        var borrowAmount1 = collateralAmount1.mul(2).mul(9200).div(10000);
+        var borrowAmount2 = collateralAmount2.mul(2).mul(9200).div(10000);
+        await deposit(investor1, lendingPair, collateral, collateralAmount1);
+        await deposit(investor2, lendingPair, collateral, collateralAmount2);
+        // We should be right at LTV here (including fee)
+        borrowAmount1 = borrowAmount1.mul(100).div(101).sub(2);
+        borrowAmount2 = borrowAmount2.mul(100).div(101).sub(2);
+        var borrowAmount1Fee = borrowAmount1.div(100);
+        var borrowAmount2Fee = borrowAmount2.div(100);
+        await lendingPair.connect(investor1).borrow(investor1.address, borrowAmount1);
+        await lendingPair.connect(investor2).borrow(investor2.address, borrowAmount2);
+
+        // Have for exit fees
+        const tmpAmount = ethers.utils.parseEther('1000');
+        await stablecoin.mint(investor1.address, tmpAmount);
+        await stablecoin.mint(investor2.address, tmpAmount);
+        await stablecoin.connect(investor1).approve(lendingPair.address, tmpAmount);
+        await stablecoin.connect(investor2).approve(lendingPair.address, tmpAmount);
+
+        // Repay all inv1
+        const rptx1 = await lendingPair.connect(investor1).repay(investor1.address, borrowAmount1.add(borrowAmount1Fee));
+        const rprc1 = await rptx1.wait();
+        const e1 = rprc1.events![rprc1.events!.length-1];
+        var repayFee1 = borrowAmount1.add(borrowAmount1Fee).div(100);
+
+        await repayChecks(
+            e1,
+            investor1,
+            investor2,
+            lendingPair,
+            stablecoin,
+            [
+                "LoanRepaid", // Event name
+                investor1.address, // Loan repayer
+                borrowAmount1.add(borrowAmount1Fee), // Amount repaid (without fee)
+                investor1.address, // Repay receiver
+                true, // Can inv1 withdraw DUST?
+                false, // Can inv2 withdraw DUST?
+                0, // User borrow 1
+                borrowAmount2.add(borrowAmount2Fee), // User borrow 2
+                borrowAmount2.add(borrowAmount2Fee), // Total borrowed
+                totalAdded.sub(borrowAmount2.add(borrowAmount2Fee)), // Left to borrow
+                tmpAmount.sub(repayFee1).sub(borrowAmount1Fee), // Stablecoin balance inv1
+                tmpAmount.add(borrowAmount2) // Stablecoin balance inv2
+            ]
+        );
+
+        await collateral.connect(investor1).approve(lendingPair.address, tmpAmount);
+        await collateral.mint(investor1.address, tmpAmount);
+        await lendingPair.connect(investor1).deposit(tmpAmount);
+        await lendingPair.connect(investor1).borrow(investor1.address, borrowAmount2);
+
+        // Repay all inv2 for inv1
+        const rptx2 = await lendingPair.connect(investor2).repay(investor1.address, borrowAmount2.add(borrowAmount2Fee));
+        const rprc2 = await rptx2.wait();
+        const e2 = rprc2.events![rprc2.events!.length-1];
+        var repayFee2 = borrowAmount2.add(borrowAmount2Fee).div(100);
+
+        await repayChecks(
+            e2,
+            investor1,
+            investor2,
+            lendingPair,
+            stablecoin,
+            [
+                "LoanRepaid", // Event name
+                investor2.address, // Loan repayer
+                borrowAmount2.add(borrowAmount2Fee), // Amount repaid (without fee)
+                investor1.address, // Repay receiver
+                true, // Can inv1 withdraw DUST?
+                false, // Can inv2 withdraw DUST?
+                0, // User borrow 1
+                borrowAmount2.add(borrowAmount2Fee), // User borrow 2
+                borrowAmount2.add(borrowAmount2Fee), // Total borrowed
+                totalAdded.sub(borrowAmount2.add(borrowAmount2Fee)), // Left to borrow
+                tmpAmount.sub(repayFee1).sub(borrowAmount1Fee).add(borrowAmount2), // Stablecoin balance inv1
+                tmpAmount.sub(borrowAmount2Fee).sub(repayFee2) // Stablecoin balance inv2
+            ]
+        );
+
+        // inv2 repays his own loan
+        await stablecoin.mint(investor2.address, tmpAmount);
+        await stablecoin.connect(investor2).approve(lendingPair.address, tmpAmount);
+        
+        const rptx3 = await lendingPair.connect(investor2).repay(investor2.address, borrowAmount2.add(borrowAmount2Fee));
+        const rprc3 = await rptx3.wait();
+        const e3 = rprc3.events![rprc3.events!.length-1];
+        var repayFee3 = borrowAmount2.add(borrowAmount2Fee).div(100);
+
+        await repayChecks(
+            e3,
+            investor1,
+            investor2,
+            lendingPair,
+            stablecoin,
+            [
+                "LoanRepaid", // Event name
+                investor2.address, // Loan repayer
+                borrowAmount2.add(borrowAmount2Fee), // Amount repaid (without fee)
+                investor2.address, // Repay receiver
+                true, // Can inv1 withdraw DUST?
+                true, // Can inv2 withdraw DUST?
+                0, // User borrow 1
+                0, // User borrow 2
+                0, // Total borrowed
+                totalAdded, // Left to borrow
+                tmpAmount.sub(repayFee1).sub(borrowAmount1Fee).add(borrowAmount2), // Stablecoin balance inv1
+                tmpAmount.mul(2).sub(borrowAmount2Fee.mul(2)).sub(repayFee2).sub(borrowAmount2).sub(repayFee3) // Stablecoin balance inv2
+            ]
+        );
+    });
     it.skip("Deposit and Borrow");
-    it.skip("Repay");
     it.skip("Repay and Withdraw");
     it.skip("Liquidate");
     it.skip("Fees");

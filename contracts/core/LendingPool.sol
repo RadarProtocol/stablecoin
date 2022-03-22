@@ -363,19 +363,20 @@ contract LendingPair is ReentrancyGuard {
         emit AssetBorrowed(msg.sender, _borrowAmount, _receiver);
     }
 
+    // You will have to pay a little more than `_amount` because of the exit fee
     function _repay(address _receiver, uint256 _amount) internal {
         uint256 _fee = (_amount * EXIT_FEE) / GENERAL_DIVISOR;
         accumulatedFees = accumulatedFees + _fee;
-        uint256 _repayAmount = _amount - _fee;
+        uint256 _repayAmount = _amount + _fee;
 
-        IERC20(lendAsset).safeTransferFrom(msg.sender, address(this), _amount);
-        IERC20(lendAsset).safeApprove(yieldVault, _amount);
-        ILickHitter(yieldVault).deposit(lendAsset, address(this), _amount);
+        IERC20(lendAsset).safeTransferFrom(msg.sender, address(this), _repayAmount);
+        IERC20(lendAsset).safeApprove(yieldVault, _repayAmount);
+        ILickHitter(yieldVault).deposit(lendAsset, address(this), _repayAmount);
 
-        borrows[_receiver] = borrows[_receiver] - _repayAmount;
-        totalBorrowed = totalBorrowed - _repayAmount;
+        borrows[_receiver] = borrows[_receiver] - _amount;
+        totalBorrowed = totalBorrowed - _amount;
 
-        emit LoanRepaid(msg.sender, _repayAmount, _receiver);
+        emit LoanRepaid(msg.sender, _amount, _receiver);
     }
 
     function _userCollateral(address _user) internal view returns (uint256) {
