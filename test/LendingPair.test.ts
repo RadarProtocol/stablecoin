@@ -1,6 +1,6 @@
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { expect } from "chai";
-import { BigNumber } from "ethers";
+import { BigNumber, BigNumberish } from "ethers";
 import { ethers } from "hardhat";
 import { LendingPair, LickHitter, TheStableMoney } from "../typechain";
 
@@ -72,15 +72,36 @@ const addStablecoinToLending = async (
 }
 
 const deposit = async (
-    investor: any,
-    lendingPair: any,
-    collateral: any,
-    amount: any
+    investor: SignerWithAddress,
+    lendingPair: LendingPair,
+    collateral: TheStableMoney,
+    amount: BigNumberish
 ) => {
     await collateral.mint(investor.address, amount);
     await collateral.connect(investor).approve(lendingPair.address, amount);
 
     const tx = await lendingPair.connect(investor).deposit(amount);
+    const receipt = await tx.wait();
+
+    return receipt;
+}
+
+const depositAndBorrow = async (
+    investor: SignerWithAddress,
+    lendingPair: LendingPair,
+    collateral: TheStableMoney,
+    depositAmount: BigNumberish,
+    borrowAmount: BigNumberish,
+    receivingAddress: SignerWithAddress
+) => {
+    await collateral.mint(investor.address, depositAmount);
+    await collateral.connect(investor).approve(lendingPair.address, depositAmount);
+
+    const tx = await lendingPair.connect(investor).depositAndBorrow(
+        depositAmount,
+        borrowAmount,
+        receivingAddress.address
+    );
     const receipt = await tx.wait();
 
     return receipt;
@@ -827,9 +848,220 @@ describe("Lending Pair", () => {
             ]
         );
     });
-    it.skip("Deposit and Borrow");
+    it("Deposit and Borrow", async () => {
+        const {
+            lendingPair,
+            investor1,
+            investor2,
+            collateral,
+            yieldVault,
+            deployer,
+            stablecoin
+        } = await snapshot();
+
+        const depositAndBorrowChecks = async (
+            e1: any,
+            e2: any,
+            i1: SignerWithAddress,
+            i2: SignerWithAddress,
+            lp: LendingPair,
+            cl: TheStableMoney,
+            st: TheStableMoney,
+            vc: Array<any>
+        ) => {
+            var i = 0;
+            expect(e1.event).to.eq(vc[i++]);
+            expect(e1.args!.owner).to.eq(vc[i++]);
+            expect(e1.args!.amount).to.eq(vc[i++]);
+            expect(e1.args!.shares).to.eq(vc[i++]);
+
+            expect(e2.event).to.eq(vc[i++]);
+            expect(e2.args!.owner).to.eq(vc[i++]);
+            expect(e2.args!.borrowAmount).to.eq(vc[i++]);
+            expect(e2.args!.receiver).to.eq(vc[i++]);
+    
+            const i1cbal = await lp.getCollateralBalance(i1.address);
+            expect(i1cbal).to.eq(vc[i++]);
+            const i2cbal = await lp.getCollateralBalance(i2.address);
+            expect(i2cbal).to.eq(vc[i++]);
+
+            const i1tcbal = await cl.balanceOf(i1.address);
+            expect(i1tcbal).to.eq(vc[i++]);
+            const i2tcbal = await cl.balanceOf(i2.address);
+            expect(i2tcbal).to.eq(vc[i++]);
+
+            const i1borr = await lp.getUserBorrow(i1.address);
+            expect(i1borr).to.eq(vc[i++]);
+            const i2borr = await lp.getUserBorrow(i2.address);
+            expect(i2borr).to.eq(vc[i++]);
+
+            const i1sbal = await st.balanceOf(i1.address);
+            expect(i1sbal).to.eq(vc[i++]);
+            const i2sbal = await st.balanceOf(i2.address);
+            expect(i2sbal).to.eq(vc[i++]);
+
+            const totalCol = await lp.getTotalCollateralDeposited();
+            expect(totalCol).to.eq(vc[i++]);
+            const totalBorr = await lp.getTotalBorrowed();
+            expect(totalBorr).to.eq(vc[i++]);
+            const leftToBorr = await lp.availableToBorrow();
+            expect(leftToBorr).to.eq(vc[i++]);
+        };
+
+        const totalAdded = ethers.utils.parseEther('100000');
+
+        await addStablecoinToLending(
+            stablecoin,
+            yieldVault,
+            lendingPair,
+            totalAdded,
+            deployer
+        );
+        
+        const collateralAmount1 = ethers.utils.parseEther('50');
+        const collateralAmount2 = ethers.utils.parseEther('100');
+        var borrowAmount1 = collateralAmount1.mul(2).mul(9200).div(10000);
+        var borrowAmount2 = collateralAmount2.mul(2).mul(9200).div(10000);
+        // We should be right at LTV here (including fee)
+        borrowAmount1 = borrowAmount1.mul(100).div(101).sub(2);
+        borrowAmount2 = borrowAmount2.mul(100).div(101).sub(2);
+        var borrowAmount1Fee = borrowAmount1.div(100);
+        var borrowAmount2Fee = borrowAmount2.div(100);
+
+        await collateral.mint(investor1.address, 1000);
+        await collateral.connect(investor1).approve(lendingPair.address, 1000);
+        await expect(lendingPair.connect(investor1).depositAndBorrow(10, 20, investor1.address)).to.be.revertedWith("User not safe");
+        await collateral.connect(investor1).burn(1000);
+
+
+        // Deposit and borrow inv1 for inv1
+        const rc1 = await depositAndBorrow(
+            investor1,
+            lendingPair,
+            collateral,
+            collateralAmount1,
+            borrowAmount1,
+            investor1
+        );
+        const depositEvent = rc1.events![6];
+        const borrowEvent = rc1.events![9];
+        await depositAndBorrowChecks(
+            depositEvent,
+            borrowEvent,
+            investor1,
+            investor2,
+            lendingPair,
+            collateral,
+            stablecoin,
+            [
+                "CollateralAdded", // deposit event name
+                investor1.address, // deposit event owner
+                collateralAmount1, // deposit event amount
+                collateralAmount1, // deposit event shares
+                "AssetBorrowed", // borrow event name
+                investor1.address, // borrow event owner
+                borrowAmount1.add(borrowAmount1Fee), // borrow event borrowAmount
+                investor1.address, // borrow event receiver
+                collateralAmount1, // Collateral contract balance of inv1
+                0, // Collateral contract balance of inv2
+                0, // Actual collateral balance of inv1
+                0, // Actual collateral balance of inv2
+                borrowAmount1.add(borrowAmount1Fee), // Borrow amount inv1
+                0, // Borrow amount inv2
+                borrowAmount1, // stablecoin balance inv1
+                0, // Stablecoin balance inv2
+                collateralAmount1, // Total collateral deposited
+                borrowAmount1.add(borrowAmount1Fee), // Total borrowed
+                totalAdded.sub(borrowAmount1).sub(borrowAmount1Fee) // Left to borrow
+            ]
+        );
+
+        // Deposit and borrow inv2 for inv2
+        const rc2 = await depositAndBorrow(
+            investor2,
+            lendingPair,
+            collateral,
+            collateralAmount2,
+            borrowAmount2,
+            investor2
+        );
+        const depositEvent2 = rc2.events![6];
+        const borrowEvent2 = rc2.events![9];
+        await depositAndBorrowChecks(
+            depositEvent2,
+            borrowEvent2,
+            investor1,
+            investor2,
+            lendingPair,
+            collateral,
+            stablecoin,
+            [
+                "CollateralAdded", // deposit event name
+                investor2.address, // deposit event owner
+                collateralAmount2, // deposit event amount
+                collateralAmount2, // deposit event shares
+                "AssetBorrowed", // borrow event name
+                investor2.address, // borrow event owner
+                borrowAmount2.add(borrowAmount2Fee), // borrow event borrowAmount
+                investor2.address, // borrow event receiver
+                collateralAmount1, // Collateral contract balance of inv1
+                collateralAmount2, // Collateral contract balance of inv2
+                0, // Actual collateral balance of inv1
+                0, // Actual collateral balance of inv2
+                borrowAmount1.add(borrowAmount1Fee), // Borrow amount inv1
+                borrowAmount2.add(borrowAmount2Fee), // Borrow amount inv2
+                borrowAmount1, // stablecoin balance inv1
+                borrowAmount2, // Stablecoin balance inv2
+                collateralAmount1.add(collateralAmount2), // Total collateral deposited
+                borrowAmount1.add(borrowAmount1Fee).add(borrowAmount2).add(borrowAmount2Fee), // Total borrowed
+                totalAdded.sub(borrowAmount1).sub(borrowAmount1Fee).sub(borrowAmount2).sub(borrowAmount2Fee) // Left to borrow
+            ]
+        );
+
+        // Deposit and borrow inv2 for inv1
+        const rc3 = await depositAndBorrow(
+            investor2,
+            lendingPair,
+            collateral,
+            collateralAmount2,
+            borrowAmount2,
+            investor1
+        );
+        const depositEvent3 = rc3.events![6];
+        const borrowEvent3 = rc3.events![9];
+        await depositAndBorrowChecks(
+            depositEvent3,
+            borrowEvent3,
+            investor1,
+            investor2,
+            lendingPair,
+            collateral,
+            stablecoin,
+            [
+                "CollateralAdded", // deposit event name
+                investor2.address, // deposit event owner
+                collateralAmount2, // deposit event amount
+                collateralAmount2, // deposit event shares
+                "AssetBorrowed", // borrow event name
+                investor2.address, // borrow event owner
+                borrowAmount2.add(borrowAmount2Fee), // borrow event borrowAmount
+                investor1.address, // borrow event receiver
+                collateralAmount1, // Collateral contract balance of inv1
+                collateralAmount2.mul(2), // Collateral contract balance of inv2
+                0, // Actual collateral balance of inv1
+                0, // Actual collateral balance of inv2
+                borrowAmount1.add(borrowAmount1Fee), // Borrow amount inv1
+                borrowAmount2.add(borrowAmount2Fee).mul(2), // Borrow amount inv2
+                borrowAmount1.add(borrowAmount2), // stablecoin balance inv1
+                borrowAmount2, // Stablecoin balance inv2
+                collateralAmount1.add(collateralAmount2.mul(2)), // Total collateral deposited
+                borrowAmount1.add(borrowAmount1Fee).add((borrowAmount2).add(borrowAmount2Fee).mul(2)), // Total borrowed
+                totalAdded.sub(borrowAmount1).sub(borrowAmount1Fee).sub((borrowAmount2).add(borrowAmount2Fee).mul(2)) // Left to borrow
+            ]
+        );
+    });
     it.skip("Repay and Withdraw");
     it.skip("Liquidate");
     it.skip("Fees");
-    it.skip("Collateral increasing in value");
+    it.skip("Collateral increasing in value: oracle price + yield profit");
 });
