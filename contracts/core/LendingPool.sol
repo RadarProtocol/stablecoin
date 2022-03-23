@@ -354,6 +354,8 @@ contract LendingPair is ReentrancyGuard {
         accumulatedFees = accumulatedFees + _fee;
         uint256 _borrowAmount = _amount + _fee;
 
+        require(_borrowAmount <= _availableToBorrow(), "Not enough coins");
+
         borrows[msg.sender] = borrows[msg.sender] + _borrowAmount;
         totalBorrowed = totalBorrowed + _borrowAmount;
 
@@ -381,6 +383,11 @@ contract LendingPair is ReentrancyGuard {
 
     function _userCollateral(address _user) internal view returns (uint256) {
         return ILickHitter(yieldVault).convertShares(collateral, shareBalances[_user], 0);
+    }
+
+    function _availableToBorrow() internal view returns (uint256) {
+        uint256 _myShares = ILickHitter(yieldVault).balanceOf(lendAsset, address(this));
+        return ILickHitter(yieldVault).convertShares(lendAsset, _myShares, 0) - accumulatedFees;
     }
 
     // State Getters
@@ -426,8 +433,7 @@ contract LendingPair is ReentrancyGuard {
     }
 
     function availableToBorrow() external view returns (uint256) {
-        uint256 _myShares = ILickHitter(yieldVault).balanceOf(lendAsset, address(this));
-        return ILickHitter(yieldVault).convertShares(lendAsset, _myShares, 0) - accumulatedFees;
+        return _availableToBorrow();
     }
 
 }
