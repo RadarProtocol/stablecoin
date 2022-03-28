@@ -66,6 +66,8 @@ describe("Stablecoin", () => {
                 stablecoin.address
             ]
         ));
+
+        expect(actualDS).to.eq(expectedDS);
     });
     it("Access Control", async () => {
         const {
@@ -109,7 +111,7 @@ describe("Stablecoin", () => {
         const event = receipt.events![0];
 
         expect(event.event).to.eq("MinterAdded")
-        expect(event.args.minter).to.eq(otherAddress1.address);
+        expect(event.args!.minter).to.eq(otherAddress1.address);
 
         const isAfter = await stablecoin.minter(otherAddress1.address);
         expect(isAfter).to.eq(true);
@@ -119,7 +121,7 @@ describe("Stablecoin", () => {
         const event2 = receipt2.events![0];
 
         expect(event2.event).to.eq("MinterRemoved");
-        expect(event2.args.minter).to.eq(otherAddress1.address);
+        expect(event2.args!.minter).to.eq(otherAddress1.address);
 
         const isFinal = await stablecoin.minter(otherAddress1.address);
         expect(isFinal).to.eq(false);
@@ -186,8 +188,8 @@ describe("Stablecoin", () => {
         const event = receipt.events![0];
 
         expect(event.event).to.eq('OwnershipTransferred');
-        expect(event.args.oldOwner).to.eq(deployer.address);
-        expect(event.args.newOwner).to.eq(otherAddress1.address);
+        expect(event.args!.oldOwner).to.eq(deployer.address);
+        expect(event.args!.newOwner).to.eq(otherAddress1.address);
 
         const getPendingOwnerCall2 = await stablecoin.pendingOwner();
         const getOwnerCall = await stablecoin.owner();

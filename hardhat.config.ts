@@ -43,7 +43,7 @@ const config: HardhatUserConfig = {
         runs: 200,
       },
     },
-    version: '0.8.0',
+    version: '0.8.2',
   },
   namedAccounts: {
     deployer: 0
@@ -53,7 +53,7 @@ const config: HardhatUserConfig = {
       hardfork: 'london',
       accounts: {
         accountsBalance: utils.parseUnits('1', 36).toString(),
-        count: 5,
+        count: 10,
         mnemonic,
       },
       forking: {
