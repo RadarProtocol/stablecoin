@@ -1,8 +1,8 @@
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { expect } from "chai";
-import { BigNumber, BigNumberish } from "ethers";
+import { BigNumber, BigNumberish, Contract } from "ethers";
 import { ethers } from "hardhat";
-import { LendingPair, LickHitter, TheStableMoney } from "../typechain";
+import { LendingPair, LickHitter, TheStableMoney, MockLiquidator } from "../typechain";
 
 const DUST = ethers.utils.parseEther('0.0001');
 
@@ -20,7 +20,7 @@ const snapshot = async () => {
     await yieldVault.addSupportedToken(stablecoin.address, 0);
 
     const mockOracleFactory = await ethers.getContractFactory("MockOracle");
-    const mockOracle = await mockOracleFactory.deploy(collateral.address, 2); // collateral is worth $2
+    const mockOracle = await mockOracleFactory.deploy(collateral.address, ethers.utils.parseEther('2')); // collateral is worth $2
 
     const masterFactory = await ethers.getContractFactory("LendingPair");
     const proxyFactory = await ethers.getContractFactory("LendingNUP");
@@ -42,7 +42,13 @@ const snapshot = async () => {
     ]);
 
     const lendingPairProxy = await proxyFactory.deploy(initData, masterContract.address);
-    const lendingPair = masterFactory.attach(lendingPairProxy.address)
+    const lendingPair = masterFactory.attach(lendingPairProxy.address);
+
+    const mockLiqFactory = await ethers.getContractFactory("MockLiquidator");
+    const mockLiquidator = await mockLiqFactory.deploy(
+        stablecoin.address,
+        lendingPair.address
+    );
 
     return {
         deployer,
@@ -55,7 +61,8 @@ const snapshot = async () => {
         yieldVault,
         mockOracle,
         masterContract,
-        lendingPair
+        lendingPair,
+        mockLiquidator
     }
 }
 
@@ -1301,7 +1308,394 @@ describe("Lending Pair", () => {
             )
         ).to.be.revertedWith("User not safe");
     });
-    it.skip("Liquidate");
-    it.skip("Fees");
-    it.skip("Collateral increasing in value: oracle price + yield profit");
+    it("Liquidate", async () => {
+        const {
+            investor1,
+            investor2,
+            lendingPair,
+            mockLiquidator,
+            stablecoin,
+            yieldVault,
+            deployer,
+            collateral,
+            mockOracle
+        } = await snapshot();
+
+        const liquidateChecks = async (
+            e1: any,
+            e2: any,
+            e3: any,
+            i1: SignerWithAddress,
+            i2: SignerWithAddress,
+            lp: LendingPair,
+            liquidator: MockLiquidator | Contract,
+            sb: TheStableMoney,
+            cl: TheStableMoney,
+            vc: Array<any>
+        ) => {
+            var i = 0;
+            
+            expect(e1.event).to.eq(vc[i++]);
+            expect(e1.args!.user).to.eq(vc[i++]);
+            expect(e1.args!.liquidator).to.eq(vc[i++]);
+            expect(e1.args!.repayAmount).to.eq(vc[i++]);
+            expect(e1.args!.collateralLiquidated).to.eq(vc[i++]);
+
+            expect(e2.event).to.eq(vc[i++]);
+            expect(e2.args!.user).to.eq(vc[i++]);
+            expect(e2.args!.liquidator).to.eq(vc[i++]);
+            expect(e2.args!.repayAmount).to.eq(vc[i++]);
+            expect(e2.args!.collateralLiquidated).to.eq(vc[i++]);
+
+            expect(e3.name).to.eq(vc[i++]);
+            expect(e3.args!.token).to.eq(vc[i++]);
+            expect(e3.args!.initiator).to.eq(vc[i++]);
+            expect(e3.args!.totalRepayAmount).to.eq(vc[i++]);
+            expect(e3.args!.totalCollateralReceived).to.eq(vc[i++]);
+
+            const tbu1 = await lp.getUserBorrow(i1.address);
+            const tbu2 = await lp.getUserBorrow(i2.address);
+            expect(tbu1).to.eq(vc[i++]);
+            expect(tbu2).to.eq(vc[i++]);
+
+            const cbu1 = await lp.getCollateralBalance(i1.address);
+            const cbu2 = await lp.getCollateralBalance(i2.address);
+            expect(cbu1).to.eq(vc[i++]);
+            expect(cbu2).to.eq(vc[i++]);
+
+            const getTB = await lp.getTotalBorrowed();
+            const getTC = await lp.getTotalCollateralDeposited();
+            const getAB = await lp.availableToBorrow();
+            expect(getTB).to.be.closeTo(vc[i++], 1);
+            expect(getTC).to.be.closeTo(vc[i++], 1);
+            expect(getAB).to.be.closeTo(vc[i++], 1);
+
+            const liqsbbal = await sb.balanceOf(liquidator.address);
+            const liqclbal = await cl.balanceOf(liquidator.address);
+            expect(liqsbbal).to.eq(vc[i++]);
+            expect(liqclbal).to.eq(vc[i++]);
+        };
+
+        // Deposit and borrow to LTV
+        const totalAdded = ethers.utils.parseEther('100000');
+
+        await addStablecoinToLending(
+            stablecoin,
+            yieldVault,
+            lendingPair,
+            totalAdded,
+            deployer
+        );
+        
+        const collateralAmount1 = ethers.utils.parseEther('50');
+        const collateralAmount2 = ethers.utils.parseEther('100');
+        var borrowAmount1 = collateralAmount1.mul(2).mul(9200).div(10000);
+        var borrowAmount2 = collateralAmount2.mul(2).mul(9200).div(10000);
+        // We should be right at LTV here (including fee)
+        borrowAmount1 = borrowAmount1.mul(100).div(101).sub(2);
+        borrowAmount2 = borrowAmount2.mul(100).div(101).sub(2);
+        var borrowAmount1Fee = borrowAmount1.div(100);
+        var borrowAmount2Fee = borrowAmount2.div(100);
+
+        await depositAndBorrow(
+            investor1,
+            lendingPair,
+            collateral,
+            collateralAmount1,
+            borrowAmount1,
+            investor1
+        );
+        await depositAndBorrow(
+            investor2,
+            lendingPair,
+            collateral,
+            collateralAmount2,
+            borrowAmount2,
+            investor2
+        );
+
+        // Check Liquidate none
+        await expect(lendingPair.liquidate(
+            [investor1.address, investor2.address],
+            [totalAdded, totalAdded],
+            mockLiquidator.address
+        )).to.be.revertedWith(
+            "Liquidate none"
+        );
+
+        // Lower collateral value
+        await mockOracle.changePrice(ethers.utils.parseEther('1.95'));
+
+        // Try liquidate with 0 tokens in mockLiquidator contract (FAIL)
+        await expect(lendingPair.liquidate(
+            [investor1.address, investor2.address],
+            [totalAdded, borrowAmount2.div(2)],
+            mockLiquidator.address
+        )).to.be.revertedWith(
+            "ERC20: transfer amount exceeds balance"
+        );
+
+        // Send mockLiquidator SB and liquidate
+        const abi = [ "event LiqDebugEvent(address token,address initiator,uint256 totalRepayAmount,uint256 totalCollateralReceived)" ];
+        const iface = new ethers.utils.Interface(abi);
+
+        await stablecoin.mint(mockLiquidator.address, totalAdded);
+
+        const tx1 = await lendingPair.liquidate(
+            [investor1.address, investor2.address],
+            [totalAdded, borrowAmount2.div(2)],
+            mockLiquidator.address
+        );
+        const r1 = await tx1.wait();
+        const le1 = r1.events![0];
+        const le2 = r1.events![1];
+        const le3 = iface.parseLog(r1.events![5]);
+
+        var cr1 = borrowAmount1.add(borrowAmount1Fee);
+        cr1 = cr1.add(cr1.mul(500).div(10000));
+        cr1 = cr1.mul(ethers.utils.parseEther('1')).div(ethers.utils.parseEther('1.95'));
+        var cr2 = borrowAmount2.div(2);
+        cr2 = cr2.add(cr2.mul(500).div(10000));
+        cr2 = cr2.mul(ethers.utils.parseEther('1')).div(ethers.utils.parseEther('1.95'));
+        
+        var trp = borrowAmount1.add(borrowAmount1Fee).add(borrowAmount2.div(2));
+        var trp_profit = trp.mul(500).div(10000);
+        var radar_fee = trp_profit.mul(1000).div(10000);
+        await liquidateChecks(
+            le1,
+            le2,
+            le3,
+            investor1,
+            investor2,
+            lendingPair,
+            mockLiquidator,
+            stablecoin,
+            collateral,
+            [
+                "Liquidated", // liquidated event name
+                investor1.address, // user liquidated
+                deployer.address, // Liquidator
+                borrowAmount1.add(borrowAmount1Fee), // repay amount
+                cr1, // Collateral Liquidated
+                "Liquidated", // liquidated event name
+                investor2.address, // user liquidated
+                deployer.address, // Liquidator
+                borrowAmount2.div(2), // repay amount
+                cr2, // Collateral Liquidated
+                "LiqDebugEvent", // Debug event name
+                collateral.address, // Collateral
+                deployer.address, // Initiator
+                trp.add(radar_fee), // Total repay required
+                cr1.add(cr2), // Total Collateral received
+                0, // Investor 1 borrow
+                borrowAmount2.add(borrowAmount2Fee).sub(borrowAmount2.div(2)), // Investor 2 borrow
+                collateralAmount1.sub(cr1), // Collateral bal investor 1
+                collateralAmount2.sub(cr2), // Collateral bal investor 2
+                borrowAmount2.add(borrowAmount2Fee).sub(borrowAmount2.div(2)), // Total Borrowed
+                collateralAmount1.add(collateralAmount2).sub(cr1.add(cr2)), // Total Collateral deposited
+                totalAdded.sub(borrowAmount2.div(2).add(borrowAmount2Fee)), // Available to borrow
+                totalAdded.sub(trp).sub(radar_fee), // Liquidator sb balance
+                cr1.add(cr2) // Liquidator collateral balance
+            ]
+        );
+
+        // Check you can also liquidate in case of a flash crash
+        await mockOracle.changePrice(ethers.utils.parseEther('0.5'));
+        await lendingPair.liquidate(
+            [investor2.address],
+            [totalAdded],
+            mockLiquidator.address
+        );
+
+        // Cannot liquidate with invalid data
+        await expect(lendingPair.liquidate([investor1.address, investor2.address], [totalAdded], mockLiquidator.address)).to.be.revertedWith("Invalid data");
+    });
+    it("Fees", async () => {
+        const {
+            investor1,
+            investor2,
+            collateral,
+            stablecoin,
+            lendingPair,
+            yieldVault,
+            deployer,
+            mockOracle,
+            mockLiquidator,
+            feeReceiver
+        } = await snapshot();
+
+        const feeCheck = async (
+            lp: LendingPair,
+            yv: LickHitter,
+            sb: TheStableMoney,
+            vc: Array<any>
+        ) => {
+            var i = 0;
+            const unclaimedFees = vc[i++];
+
+            const getUF = await lp.unclaimedFees();
+            const atb = await lp.availableToBorrow();
+            const sbbal = await yv.balanceOf(sb.address, lp.address);
+
+            expect(unclaimedFees).to.eq(getUF);
+            expect(sbbal.sub(atb)).to.eq(unclaimedFees);
+        }
+
+        // Borrow fee
+        const totalAdded = ethers.utils.parseEther('100000');
+
+        await addStablecoinToLending(
+            stablecoin,
+            yieldVault,
+            lendingPair,
+            totalAdded,
+            deployer
+        );
+        
+        const collateralAmount1 = ethers.utils.parseEther('50');
+        const collateralAmount2 = ethers.utils.parseEther('100');
+        var borrowAmount1 = collateralAmount1.mul(2).mul(9200).div(10000);
+        var borrowAmount2 = collateralAmount2.mul(2).mul(9200).div(10000);
+        // We should be right at LTV here (including fee)
+        borrowAmount1 = borrowAmount1.mul(100).div(101).sub(2);
+        borrowAmount2 = borrowAmount2.mul(100).div(101).sub(2);
+        var borrowAmount1Fee = borrowAmount1.div(100);
+        var borrowAmount2Fee = borrowAmount2.div(100);
+
+
+        await depositAndBorrow(
+            investor1,
+            lendingPair,
+            collateral,
+            collateralAmount1,
+            borrowAmount1,
+            investor1
+        );
+        var currentFee = borrowAmount1Fee;
+
+        await feeCheck(
+            lendingPair,
+            yieldVault,
+            stablecoin,
+            [currentFee]
+        );
+
+        await depositAndBorrow(
+            investor2,
+            lendingPair,
+            collateral,
+            collateralAmount2,
+            borrowAmount2,
+            investor2
+        );
+        currentFee = currentFee.add(borrowAmount2Fee);
+
+        await feeCheck(
+            lendingPair,
+            yieldVault,
+            stablecoin,
+            [currentFee]
+        );
+
+        // Repay fee
+
+        const tmpAmount = ethers.utils.parseEther('1000');
+        await stablecoin.mint(investor1.address, tmpAmount);
+        await stablecoin.mint(investor2.address, tmpAmount);
+        await stablecoin.connect(investor1).approve(lendingPair.address, tmpAmount);
+        await stablecoin.connect(investor2).approve(lendingPair.address, tmpAmount);
+
+        await lendingPair.connect(investor2).repay(investor2.address, borrowAmount2.add(borrowAmount2Fee));
+        var repayFee = borrowAmount2.add(borrowAmount2Fee).div(100);
+        currentFee = currentFee.add(repayFee);
+
+        await feeCheck(
+            lendingPair,
+            yieldVault,
+            stablecoin,
+            [currentFee]
+        );
+
+        // Liquidate fee
+
+        await mockOracle.changePrice(ethers.utils.parseEther('1.95'));
+        await stablecoin.mint(mockLiquidator.address, totalAdded);
+
+        await lendingPair.liquidate(
+            [investor1.address, investor2.address],
+            [totalAdded, totalAdded],
+            mockLiquidator.address
+        );
+
+        var trp = borrowAmount1.add(borrowAmount1Fee);
+        var trp_profit = trp.mul(500).div(10000);
+        var radar_fee = trp_profit.mul(1000).div(10000);
+        currentFee = currentFee.add(radar_fee);
+
+        await feeCheck(
+            lendingPair,
+            yieldVault,
+            stablecoin,
+            [currentFee]
+        );
+
+        // Claim fees
+        await lendingPair.connect(investor1).claimFees();
+        const frcb = await stablecoin.balanceOf(feeReceiver.address);
+        expect(frcb).to.eq(currentFee);
+
+        // Check now SB balance = available to borrow
+
+        await feeCheck(
+            lendingPair,
+            yieldVault,
+            stablecoin,
+            [0]
+        );
+    });
+    it("Collateral increasing in value: oracle price + yield profit", async () => {
+        const {
+            lendingPair,
+            investor1,
+            collateral,
+            yieldVault,
+            deployer,
+            stablecoin,
+            mockOracle
+        } = await snapshot();
+
+        const totalAdded = ethers.utils.parseEther('100000');
+
+        await addStablecoinToLending(
+            stablecoin,
+            yieldVault,
+            lendingPair,
+            totalAdded,
+            deployer
+        );
+        
+        const collateralAmount1 = ethers.utils.parseEther('50');
+        var borrowAmount1 = collateralAmount1.mul(2).mul(9200).div(10000);
+        // We should be right at LTV here (including fee)
+        borrowAmount1 = borrowAmount1.mul(100).div(101).sub(2);
+        var borrowAmount1Fee = borrowAmount1.div(100);
+
+
+        // Deposit and borrow inv1 for inv1
+        await depositAndBorrow(
+            investor1,
+            lendingPair,
+            collateral,
+            collateralAmount1,
+            borrowAmount1,
+            investor1
+        );
+
+        // We shouldn't be able to borrow again
+        await expect(lendingPair.connect(investor1).borrow(investor1.address, borrowAmount1)).to.be.revertedWith("User not safe");
+
+        // Now we should be able
+        await mockOracle.changePrice(ethers.utils.parseEther('4'));
+        lendingPair.connect(investor1).borrow(investor1.address, borrowAmount1)
+    });
 });

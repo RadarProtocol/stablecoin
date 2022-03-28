@@ -21,6 +21,6 @@ contract MockOracle is IOracle {
             return 0;
         }
 
-        return (price * 10**18);
+        return price;
     }
 }

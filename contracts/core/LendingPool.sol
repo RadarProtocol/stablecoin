@@ -255,13 +255,21 @@ contract LendingPair is ReentrancyGuard {
                 
                 // Collateral removed is collateral of _repayAmount value + liquidation/finder fee
                 // Calculate total collateral to be removed in stablecoin
-                // TODO: TEST THIS IS CORRECT
                 uint256 _collateralRemoved = (_repayAmount + ((LIQUIDATION_INCENTIVE * _repayAmount) / GENERAL_DIVISOR));
                 // Convert to actual collateral
-                // TODO: TEST THIS IS CORRECT
                 _collateralRemoved = (_collateralRemoved * 10**collateralDecimals) / _exchangeRate;
-
-                shareBalances[_user] = shareBalances[_user] - ILickHitter(yieldVault).convertShares(collateral, 0, _collateralRemoved);
+                uint256 _collateralShares = ILickHitter(yieldVault).convertShares(collateral, 0, _collateralRemoved);
+                if (shareBalances[_user] >= _collateralShares) {
+                    shareBalances[_user] = shareBalances[_user] - _collateralShares;
+                    totalShares = totalShares - _collateralShares;
+                } else {
+                    // In this case, the liquidation will most likely not be profitable
+                    // But this condition is kept to re-pegg the token in extreme
+                    // collateral value drop situations
+                    _collateralRemoved = ILickHitter(yieldVault).convertShares(collateral, shareBalances[_user], 0);
+                    totalShares = totalShares - shareBalances[_user];
+                    shareBalances[_user] = 0;
+                }
 
                 _totalCollateralLiquidated = _totalCollateralLiquidated + _collateralRemoved;
                 _totalRepayRequired = _totalRepayRequired + _repayAmount;
@@ -273,29 +281,29 @@ contract LendingPair is ReentrancyGuard {
                     _collateralRemoved
                 );
             }
-            require(_totalCollateralLiquidated > 0 && _totalRepayRequired > 0, "Liquidate none");
-            // TODO: TEST THIS IS CORRECT
-            uint256 _radarFee = (_totalRepayRequired * LIQUIDATION_INCENTIVE * RADAR_LIQUIDATION_FEE) / (GENERAL_DIVISOR ** 2);
-            accumulatedFees = accumulatedFees + _radarFee;
-            _totalRepayRequired = _totalRepayRequired + _radarFee;
-
-            // Send user his collateral
-            uint256 _collShares = ILickHitter(yieldVault).convertShares(collateral, 0, _totalCollateralLiquidated);
-            ILickHitter(yieldVault).withdraw(collateral, _liquidator, _collShares);
-
-            // Perform Liquidation
-            ILiquidator(_liquidator).liquidateHook(
-                collateral,
-                msg.sender,
-                _totalRepayRequired,
-                _totalCollateralLiquidated
-            );
-
-            // Get the stablecoin and deposit to vault
-            IERC20(lendAsset).safeTransferFrom(_liquidator, address(this), _totalRepayRequired);
-            IERC20(lendAsset).safeApprove(yieldVault, _totalRepayRequired);
-            ILickHitter(yieldVault).deposit(lendAsset, address(this), _totalRepayRequired);
         }
+        require(_totalCollateralLiquidated > 0 && _totalRepayRequired > 0, "Liquidate none");
+        uint256 _radarFee = (_totalRepayRequired * LIQUIDATION_INCENTIVE * RADAR_LIQUIDATION_FEE) / (GENERAL_DIVISOR ** 2);
+        accumulatedFees = accumulatedFees + _radarFee;
+        _totalRepayRequired = _totalRepayRequired + _radarFee;
+
+        // Send liquidator his collateral
+        uint256 _collShares = ILickHitter(yieldVault).convertShares(collateral, 0, _totalCollateralLiquidated);
+        ILickHitter(yieldVault).withdraw(collateral, _liquidator, _collShares);
+
+        // Perform Liquidation
+        ILiquidator(_liquidator).liquidateHook(
+            collateral,
+            msg.sender,
+            _totalRepayRequired,
+            _totalCollateralLiquidated
+        );
+
+        // Get the stablecoin and deposit to vault
+        IERC20(lendAsset).safeTransferFrom(_liquidator, address(this), _totalRepayRequired);
+        IERC20(lendAsset).safeApprove(yieldVault, _totalRepayRequired);
+        ILickHitter(yieldVault).deposit(lendAsset, address(this), _totalRepayRequired);
+        
     }
 
     // Internal functions
