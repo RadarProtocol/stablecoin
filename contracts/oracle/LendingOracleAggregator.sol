@@ -39,7 +39,7 @@ contract LendingOracleAggregator is IOracle {
     address private owner;
     address private pendingOwner;
 
-    event FeedModifier(
+    event FeedModified(
         address indexed token,
         address indexed feed,
         FeedType feedType,
@@ -66,7 +66,7 @@ contract LendingOracleAggregator is IOracle {
             feeds[_token] = _feeds[i];
             feedTypes[_token] = _feedTypes[i];
             feedDecimals[_token] = _feedDecimals[i];
-            emit FeedModifier(_token, _feeds[i], _feedTypes[i], _feedDecimals[i]);
+            emit FeedModified(_token, _feeds[i], _feedTypes[i], _feedDecimals[i]);
         }
     }
 
@@ -76,7 +76,7 @@ contract LendingOracleAggregator is IOracle {
         feedTypes[_token] = _ft;
         feeds[_token] = _feed;
         feedDecimals[_token] = _decs;
-        emit FeedModifier(_token, _feed, _ft, _decs);
+        emit FeedModified(_token, _feed, _ft, _decs);
     }
 
     function transferOwnership(address _newOwner) external onlyOwner {
@@ -148,7 +148,7 @@ contract LendingOracleAggregator is IOracle {
         return pendingOwner;
     }
 
-    function getFeed(address _token) external view returns (address, FeedType) {
-        return (feeds[_token], feedTypes[_token]);
+    function getFeed(address _token) external view returns (address, FeedType, uint8) {
+        return (feeds[_token], feedTypes[_token], feedDecimals[_token]);
     }
 }
