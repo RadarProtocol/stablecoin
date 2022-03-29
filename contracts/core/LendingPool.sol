@@ -27,7 +27,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./../interfaces/ILickHitter.sol";
 import "./../interfaces/ILendingPair.sol";
-import "./../interfaces/ITheStableMoney.sol";
+import "./../interfaces/IRadarUSD.sol";
 import "./../interfaces/IOracle.sol";
 import "./../interfaces/ILiquidator.sol";
 
@@ -160,7 +160,7 @@ contract LendingPair is ReentrancyGuard {
     function burnStablecoin(uint256 _amount) external onlyOwner {
         uint256 _sharesAmount = ILickHitter(yieldVault).convertShares(lendAsset, 0, _amount);
         ILickHitter(yieldVault).withdraw(lendAsset, address(this), _sharesAmount);
-        ITheStableMoney(lendAsset).burn(_amount);
+        IRadarUSD(lendAsset).burn(_amount);
     }
 
     // Gives owner power to liquidate everyone (by setting a low MAX_LTV),

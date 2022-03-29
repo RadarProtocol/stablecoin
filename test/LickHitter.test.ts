@@ -40,7 +40,7 @@ const snapshot = async () => {
     const lickHitterFactory = await ethers.getContractFactory("LickHitter");
     const lickHitter = await lickHitterFactory.deploy(pokeMe.address);
 
-    const mockTokenFactory = await ethers.getContractFactory("TheStableMoney");
+    const mockTokenFactory = await ethers.getContractFactory("RadarUSD");
     const mockToken = await mockTokenFactory.deploy();
     await mockToken.mint(deployer.address, ethers.utils.parseEther('1000000'));
 

@@ -6,7 +6,7 @@ const snapshot = async () => {
     const [deployer, otherAddress1, otherAddress2] = await ethers.getSigners();
     
 
-    const stableFactory = await ethers.getContractFactory("TheStableMoney");
+    const stableFactory = await ethers.getContractFactory("RadarUSD");
     const stablecoin = await stableFactory.deploy();
 
     return {
@@ -34,10 +34,10 @@ describe("Stablecoin", () => {
         expect(isMinter).to.eq(true);
 
         const name = await stablecoin.name();
-        expect(name).to.eq("The Stable Money");
+        expect(name).to.eq("Radar USD");
 
         const symbol = await stablecoin.symbol();
-        expect(symbol).to.eq("TSM");
+        expect(symbol).to.eq("USDR");
 
         const decimals = await stablecoin.decimals();
         expect(decimals).to.eq(18);
@@ -60,7 +60,7 @@ describe("Stablecoin", () => {
             ["bytes32", "bytes32", "bytes32", "uint", "address"],
             [
                 ethers.utils.keccak256("0x454950373132446f6d61696e28737472696e67206e616d652c737472696e672076657273696f6e2c75696e7432353620636861696e49642c6164647265737320766572696679696e67436f6e747261637429"),
-                ethers.utils.keccak256("0x54686520537461626c65204d6f6e6579"),
+                ethers.utils.keccak256("0x526164617220555344"),
                 ethers.utils.keccak256("0x31"),
                 31337,
                 stablecoin.address

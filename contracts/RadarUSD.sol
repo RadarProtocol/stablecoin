@@ -23,7 +23,7 @@ pragma solidity ^0.8.2;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
-contract TheStableMoney is ERC20 {
+contract RadarUSD is ERC20 {
     address public owner;
     address public pendingOwner;
 
@@ -48,7 +48,7 @@ contract TheStableMoney is ERC20 {
         _;
     }
 
-    constructor() ERC20("The Stable Money", "TSM") {
+    constructor() ERC20("Radar USD", "USDR") {
         owner = msg.sender;
         minter[msg.sender] = true;
 
@@ -56,7 +56,7 @@ contract TheStableMoney is ERC20 {
         DOMAIN_SEPARATOR = keccak256(
             abi.encode(
                 keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
-                keccak256(bytes("The Stable Money")),
+                keccak256(bytes("Radar USD")),
                 keccak256(bytes("1")),
                 block.chainid,
                 address(this)
