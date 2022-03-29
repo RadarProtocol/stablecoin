@@ -2,14 +2,14 @@ import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { expect } from "chai";
 import { BigNumber, BigNumberish, Contract } from "ethers";
 import { ethers } from "hardhat";
-import { LendingPair, LickHitter, TheStableMoney, MockLiquidator } from "../typechain";
+import { LendingPair, LickHitter, RadarUSD, MockLiquidator } from "../typechain";
 
 const DUST = ethers.utils.parseEther('0.0001');
 
 const snapshot = async () => {
     const [deployer, otherAddress1, investor1, investor2, feeReceiver] = await ethers.getSigners();
 
-    const tokenFactory = await ethers.getContractFactory("TheStableMoney");
+    const tokenFactory = await ethers.getContractFactory("RadarUSD");
     const stablecoin = await tokenFactory.deploy();
     const collateral = await tokenFactory.deploy();
 
@@ -67,7 +67,7 @@ const snapshot = async () => {
 }
 
 const addStablecoinToLending = async (
-    stablecoin: TheStableMoney,
+    stablecoin: RadarUSD,
     yieldVault: LickHitter,
     lendingPair: LendingPair,
     amount: BigNumber,
@@ -81,7 +81,7 @@ const addStablecoinToLending = async (
 const deposit = async (
     investor: SignerWithAddress,
     lendingPair: LendingPair,
-    collateral: TheStableMoney,
+    collateral: RadarUSD,
     amount: BigNumberish
 ) => {
     await collateral.mint(investor.address, amount);
@@ -96,7 +96,7 @@ const deposit = async (
 const depositAndBorrow = async (
     investor: SignerWithAddress,
     lendingPair: LendingPair,
-    collateral: TheStableMoney,
+    collateral: RadarUSD,
     depositAmount: BigNumberish,
     borrowAmount: BigNumberish,
     receivingAddress: SignerWithAddress
@@ -442,7 +442,7 @@ describe("Lending Pair", () => {
             i1: SignerWithAddress,
             i2: SignerWithAddress,
             lp: LendingPair,
-            cl: TheStableMoney,
+            cl: RadarUSD,
             yv: LickHitter,
             vc: Array<any>
         ) => {
@@ -703,7 +703,7 @@ describe("Lending Pair", () => {
             i1: SignerWithAddress,
             i2: SignerWithAddress,
             lp: LendingPair,
-            sb: TheStableMoney,
+            sb: RadarUSD,
             vc: Array<any>
         ) => {
             var i = 0;
@@ -890,8 +890,8 @@ describe("Lending Pair", () => {
             i1: SignerWithAddress,
             i2: SignerWithAddress,
             lp: LendingPair,
-            cl: TheStableMoney,
-            st: TheStableMoney,
+            cl: RadarUSD,
+            st: RadarUSD,
             vc: Array<any>
         ) => {
             var i = 0;
@@ -1101,8 +1101,8 @@ describe("Lending Pair", () => {
             e2: any,
             i1: SignerWithAddress,
             i2: SignerWithAddress,
-            cl: TheStableMoney,
-            st: TheStableMoney,
+            cl: RadarUSD,
+            st: RadarUSD,
             lp: LendingPair,
             yv: LickHitter,
             vc: Array<any>
@@ -1329,8 +1329,8 @@ describe("Lending Pair", () => {
             i2: SignerWithAddress,
             lp: LendingPair,
             liquidator: MockLiquidator | Contract,
-            sb: TheStableMoney,
-            cl: TheStableMoney,
+            sb: RadarUSD,
+            cl: RadarUSD,
             vc: Array<any>
         ) => {
             var i = 0;
@@ -1527,7 +1527,7 @@ describe("Lending Pair", () => {
         const feeCheck = async (
             lp: LendingPair,
             yv: LickHitter,
-            sb: TheStableMoney,
+            sb: RadarUSD,
             vc: Array<any>
         ) => {
             var i = 0;

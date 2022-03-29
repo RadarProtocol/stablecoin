@@ -21,7 +21,7 @@
  // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.2;
 
-interface ITheStableMoney {
+interface IRadarUSD {
 
     function owner() external view returns (address);
     function pendingOwner() external view returns (address);
