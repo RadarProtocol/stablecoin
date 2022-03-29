@@ -20,8 +20,8 @@ const snapshot = async () => {
         }, {
             token: "0xB8c77482e45F1F44dE1745F52C74426C631bDD52", // BNB
             feedType: 1,
-            feed: "0x14e613AC84a31f709eadbdF89C6CC390fDc9540A",
-            decimals: 8
+            feed: "0xc546d2d06144F9DD42815b8bA46Ee7B8FcAFa4a2",
+            decimals: 18
         }, {
             token: "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599", // WBTC
             feedType: 0,
@@ -203,6 +203,45 @@ describe('LendingOracleAggregator', () => {
         expect(getEFeedAfter[1]).to.eq(modifyTo.feedType);
         expect(getEFeedAfter[2]).to.eq(modifyTo.decimals);
     });
-    it.skip("FeedType: ChainlinkDirect");
-    it.skip("FeedType: ChainlinkETH");
+    it("Safe call on invalid feed", async () => {
+        const {
+            oracle,
+            oracleFeeds
+        } = await snapshot();
+        await expect(oracle.getUSDPrice(ethers.constants.AddressZero)).to.be.revertedWith("Invalid Feed");
+    });
+    it("FeedType: ChainlinkDirect", async () => {
+        const {
+            oracle,
+            oracleFeeds
+        } = await snapshot();
+
+        // Oracle price 29th of March, 2022, 9 PM UTC
+        const wethOraclePrice = await oracle.getUSDPrice(oracleFeeds[0].token);
+        const wbtcOraclePrice = await oracle.getUSDPrice(oracleFeeds[3].token);
+        // CoinGecko price 29th of March, 2022, 9 PM UTC
+        const approxWethPrice = ethers.utils.parseEther("2956.98");
+        const approxWbtcPrice = ethers.utils.parseEther("43849.43");
+
+        // Max 1% difference
+        expect(wethOraclePrice).to.be.closeTo(approxWethPrice, wethOraclePrice.div(100));
+        expect(wbtcOraclePrice).to.be.closeTo(approxWbtcPrice, wbtcOraclePrice.div(100));
+    });
+    it("FeedType: ChainlinkETH", async () => {
+        const {
+            oracle,
+            oracleFeeds
+        } = await snapshot();
+
+        // Oracle price 29th of March, 2022, 9 PM UTC
+        const ftmOraclePrice = await oracle.getUSDPrice(oracleFeeds[1].token);
+        const bnbOraclePrice = await oracle.getUSDPrice(oracleFeeds[2].token);
+        // CoinGecko price 29th of March, 2022, 9 PM UTC
+        const approxFtmPrice = ethers.utils.parseEther("1.85");
+        const approxBnbPrice = ethers.utils.parseEther("408.09");
+
+        // Max 1% difference
+        expect(ftmOraclePrice).to.be.closeTo(approxFtmPrice, ftmOraclePrice.div(100));
+        expect(bnbOraclePrice).to.be.closeTo(approxBnbPrice, bnbOraclePrice.div(100));
+    });
 });
