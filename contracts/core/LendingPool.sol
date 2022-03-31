@@ -363,7 +363,6 @@ contract LendingPair is ReentrancyGuard {
             return false;
         }
 
-        // TODO: TEST THIS IS CORRECT
         uint256 _collateralValue = (_collateral * _rate) / (10**collateralDecimals);
         // Price has 18 decimals and stablecoin has 18 decimals
         return ((_collateralValue * MAX_LTV) / GENERAL_DIVISOR) >= _borrowed;

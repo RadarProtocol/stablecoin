@@ -3,6 +3,7 @@ import { expect } from "chai";
 import { BigNumber, BigNumberish, Contract } from "ethers";
 import { ethers } from "hardhat";
 import { LendingPair, LickHitter, RadarUSD, MockLiquidator } from "../typechain";
+import { MockSwapper } from "../typechain/MockSwapper";
 
 const DUST = ethers.utils.parseEther('0.0001');
 
@@ -1534,6 +1535,125 @@ describe("Lending Pair", () => {
         // Cannot liquidate with invalid data
         await expect(lendingPair.liquidate([investor1.address, investor2.address], [totalAdded], mockLiquidator.address)).to.be.revertedWith("Invalid data");
     });
+    it("hookedDepositAndBorrow", async () => {
+        const {
+            stablecoin,
+            collateral,
+            investor1,
+            investor2,
+            mockSwapper,
+            lendingPair,
+            yieldVault,
+            deployer
+        } = await snapshot();
+
+        const DBhookChecks = async (
+            e1: any,
+            e2: any,
+            i1: SignerWithAddress,
+            i2: SignerWithAddress,
+            lp: LendingPair,
+            cl: RadarUSD,
+            sb: RadarUSD,
+            swapper: MockSwapper,
+            yv: LickHitter,
+            vc: Array<any>
+        ) => {
+            var i = 0;
+
+            expect(e1.event).to.eq(vc[i++]);
+            expect(e1.args!.owner).to.eq(vc[i++]);
+            expect(e1.args!.borrowAmount).to.eq(vc[i++]);
+            expect(e1.args!.receiver).to.eq(vc[i++]);
+
+            expect(e2.event).to.eq(vc[i++]);
+            expect(e2.args!.owner).to.eq(vc[i++]);
+            expect(e2.args!.amount).to.eq(vc[i++]);
+            expect(e2.args!.shares).to.eq(vc[i++]);
+
+            const tbu1 = await lp.getUserBorrow(i1.address);
+            const tbu2 = await lp.getUserBorrow(i2.address);
+            expect(tbu1).to.eq(vc[i++]);
+            expect(tbu2).to.eq(vc[i++]);
+
+            const cbu1 = await lp.getCollateralBalance(i1.address);
+            const cbu2 = await lp.getCollateralBalance(i2.address);
+            expect(cbu1).to.eq(vc[i++]);
+            expect(cbu2).to.eq(vc[i++]);
+
+            const getTB = await lp.getTotalBorrowed();
+            const getTC = await lp.getTotalCollateralDeposited();
+            const getAB = await lp.availableToBorrow();
+            expect(getTB).to.be.closeTo(vc[i++], 1);
+            expect(getTC).to.be.closeTo(vc[i++], 1);
+            expect(getAB).to.be.closeTo(vc[i++], 1);
+
+            const msclbal = await cl.balanceOf(swapper.address);
+            const mssbbal = await sb.balanceOf(swapper.address);
+            expect(msclbal).to.eq(vc[i++]);
+            expect(mssbbal).to.eq(vc[i++]);
+
+            const i1sbbal = await sb.balanceOf(investor1.address);
+            const i2sbbal = await sb.balanceOf(investor2.address);
+            const i1clbbal = await cl.balanceOf(investor1.address);
+            const i2clbal = await cl.balanceOf(investor2.address);
+            expect(i1sbbal).to.eq(vc[i++]);
+            expect(i2sbbal).to.eq(vc[i++]);
+            expect(i1clbbal).to.eq(vc[i++]);
+            expect(i2clbal).to.eq(vc[i++]);
+
+            const lpyvbal = await yv.balanceOf(cl.address, lp.address);
+            expect(lpyvbal).to.eq(vc[i++]);
+        }
+
+        const totalAdded = ethers.utils.parseEther('100000');
+
+        await addStablecoinToLending(
+            stablecoin,
+            yieldVault,
+            lendingPair,
+            totalAdded,
+            deployer
+        );
+
+        // TODO: UNCOMMENT ME
+        // await collateral.mint(mockSwapper.address, ethers.utils.parseEther('1'));
+        // await collateral.mint(investor1.address, ethers.utils.parseEther('1'));
+        // await collateral.connect(investor1).approve(lendingPair.address, ethers.utils.parseEther('1'));
+        // await expect(lendingPair.connect(investor1).hookedDepositAndBorrow(
+        //     ethers.utils.parseEther('1'),
+        //     ethers.utils.parseEther('10'),
+        //     "0x00"
+        // )).to.be.revertedWith("User not safe");
+        // await collateral.connect(investor1).burn(ethers.utils.parseEther('1'));
+
+        const collateralAmount1 = ethers.utils.parseEther('50'); // $100
+        const collateralAmount2 = ethers.utils.parseEther('100'); // $200
+        
+        // Leverage 15x for both with 92% LTV
+        var borrowAmount1 = collateralAmount1.mul(2).mul(9200).div(10000);
+        var borrowAmount2 = collateralAmount2.mul(2).mul(9200).div(10000);
+        for(var i = 0; i < 15; i++) {
+            borrowAmount1 = borrowAmount1.add(collateralAmount1.mul(2).add(borrowAmount1).mul(9200).div(10000).sub(borrowAmount1));
+            borrowAmount2 = borrowAmount2.add(collateralAmount2.mul(2).add(borrowAmount2).mul(9200).div(10000).sub(borrowAmount2));
+
+            console.log(`
+            Iteration ${i+1}
+            Inv1 borrow amount: ${borrowAmount1}
+            Inv2 borrow amount: ${borrowAmount2}
+            `);
+        }
+        // We should be right at LTV here (including fee) for a leveraged position
+        borrowAmount1 = borrowAmount1.mul(100).div(101).sub(2);
+        borrowAmount2 = borrowAmount2.mul(100).div(101).sub(2);
+        var borrowAmount1Fee = borrowAmount1.div(100);
+        var borrowAmount2Fee = borrowAmount2.div(100);
+
+        // Send swapper exact col per borrowAmount swap and do hookDB for inv1
+        // Send swapper exact col per borrowAmount swap and do hookDB for inv2
+
+        // We shouldn't be able to borrow for both investors
+    });
     it("Fees", async () => {
         const {
             investor1,
@@ -1662,6 +1782,8 @@ describe("Lending Pair", () => {
             stablecoin,
             [currentFee]
         );
+
+        // TODO: hookedDepositAndBorrow fees
 
         // Claim fees
         await lendingPair.connect(investor1).claimFees();
