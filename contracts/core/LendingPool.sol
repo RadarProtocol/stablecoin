@@ -239,15 +239,13 @@ contract LendingPair is ReentrancyGuard {
         bytes calldata _swapData
     ) external {
         uint256 _before = ILickHitter(yieldVault).balanceOf(collateral, address(this));
-        // 1. Borrow
+        // 1. Borrow and send direct deposit
         _borrow(swapper, _borrowAmount);
+        IERC20(collateral).safeTransferFrom(msg.sender, swapper, _depositAmount);
 
         // 2. Swap for collateral
         ISwapper(swapper).depositHook(
-            msg.sender,
-            _depositAmount,
             collateral,
-            _borrowAmount,
             _swapData
         );
 
@@ -255,7 +253,7 @@ contract LendingPair is ReentrancyGuard {
         uint256 _after = ILickHitter(yieldVault).balanceOf(collateral, address(this));
         uint256 _userDeposit = _after - _before;
         require(_userDeposit > 0, "Invalid deposit");
-        
+
         uint256 _collateralDeposited = ILickHitter(yieldVault).convertShares(collateral, _userDeposit, 0);
 
         shareBalances[msg.sender] = shareBalances[msg.sender] + _userDeposit;

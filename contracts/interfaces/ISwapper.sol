@@ -22,11 +22,17 @@
 pragma solidity ^0.8.2;
 
 interface ISwapper {
+    // Because of the permissions,
+    // there should never be collateral or
+    // stablecoin in this contract,
+    // ONLY during contract execution
+
+    // The contract will swap the received stablecoin
+    // (everything it has) to collateral,
+    // and then deposit everything
+    // into the LendingPair
     function depositHook(
-        address _depositor,
-        uint256 _directDeposit,
         address _collateral,
-        uint256 _borrowAmount,
         bytes calldata data
     ) external;
 }
