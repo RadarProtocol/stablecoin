@@ -30,6 +30,7 @@ import "./../interfaces/ILendingPair.sol";
 import "./../interfaces/IRadarUSD.sol";
 import "./../interfaces/IOracle.sol";
 import "./../interfaces/ILiquidator.sol";
+import "./../interfaces/ISwapper.sol";
 
 contract LendingPair is ReentrancyGuard {
     using SafeERC20 for IERC20;
@@ -45,6 +46,7 @@ contract LendingPair is ReentrancyGuard {
 
     address private yieldVault;
     address private oracle;
+    address private swapper;
 
     uint256 private exchangeRate;
     uint256 private exchangeRateLastUpdate;
@@ -111,7 +113,8 @@ contract LendingPair is ReentrancyGuard {
         address _yieldVault,
         address _feeReceiver,
         uint256 _maxLTV,
-        address _oracle
+        address _oracle,
+        address _swapper
     ) external {
         require(!initialized, "Already initialized");
         initialized = true;
@@ -134,6 +137,7 @@ contract LendingPair is ReentrancyGuard {
         FEE_RECEIVER = _feeReceiver;
         MAX_LTV = _maxLTV;
         oracle = _oracle;
+        swapper = _swapper;
     }
 
     // Owner functions
@@ -174,6 +178,10 @@ contract LendingPair is ReentrancyGuard {
         EXIT_FEE = _exitFee;
         LIQUIDATION_INCENTIVE = _liquidationIncentive;
         RADAR_LIQUIDATION_FEE = _radarLiqFee;
+    }
+
+    function changeSwapper(address _newSwapper) external onlyOwner {
+        swapper = _newSwapper;
     }
 
     // User functions
@@ -225,8 +233,35 @@ contract LendingPair is ReentrancyGuard {
         require(_userSafe(msg.sender), "User not safe");
     }
 
-    function leverage() external {
-        // TODO: Implement
+    function hookedDepositAndBorrow(
+        uint256 _depositAmount,
+        uint256 _borrowAmount,
+        bytes calldata _swapData
+    ) external {
+        uint256 _before = ILickHitter(yieldVault).balanceOf(collateral, address(this));
+        // 1. Borrow
+        _borrow(swapper, _borrowAmount);
+
+        // 2. Swap for collateral
+        ISwapper(swapper).depositHook(
+            msg.sender,
+            _depositAmount,
+            collateral,
+            _borrowAmount,
+            _swapData
+        );
+
+        // 3. Deposit collateral (use before/after calculation)
+        uint256 _after = ILickHitter(yieldVault).balanceOf(collateral, address(this));
+        uint256 _userDeposit = _after - _before;
+        require(_userDeposit > 0, "Invalid deposit");
+        
+        uint256 _collateralDeposited = ILickHitter(yieldVault).convertShares(collateral, _userDeposit, 0);
+
+        shareBalances[msg.sender] = shareBalances[msg.sender] + _userDeposit;
+        totalShares = totalShares + _userDeposit;
+        emit CollateralAdded(msg.sender, _collateralDeposited, _userDeposit);
+
         require(_userSafe(msg.sender), "User not safe");
     }
 
@@ -418,6 +453,10 @@ contract LendingPair is ReentrancyGuard {
 
     function getOracle() external view returns (address) {
         return oracle;
+    }
+
+    function getSwapper() external view returns (address) {
+        return swapper;
     }
 
     function getCollateralBalance(address _user) external view returns (uint256) {
