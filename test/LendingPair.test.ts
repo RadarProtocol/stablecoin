@@ -27,7 +27,13 @@ const snapshot = async () => {
 
     const masterContract = await masterFactory.deploy();
 
-    const initInterface = new ethers.utils.Interface(["function init(address _collateral,address _lendAsset,uint256 _entryFee,uint256 _exitFee,uint256 _liquidationIncentive,uint256 _radarLiqFee,address _yieldVault,address _feeReceiver,uint256 _maxLTV,address _oracle)"]);
+    const mockSwapperFactory = await ethers.getContractFactory("MockSwapper");
+    const mockSwapper = await mockSwapperFactory.deploy(
+        yieldVault.address,
+        stablecoin.address
+    );
+
+    const initInterface = new ethers.utils.Interface(["function init(address _collateral,address _lendAsset,uint256 _entryFee,uint256 _exitFee,uint256 _liquidationIncentive,uint256 _radarLiqFee,address _yieldVault,address _feeReceiver,uint256 _maxLTV,address _oracle,address _swapper)"]);
     const initData = initInterface.encodeFunctionData("init", [
         collateral.address,
         stablecoin.address,
@@ -38,7 +44,8 @@ const snapshot = async () => {
         yieldVault.address,
         feeReceiver.address,
         9200, // 92%
-        mockOracle.address
+        mockOracle.address,
+        mockSwapper.address
     ]);
 
     const lendingPairProxy = await proxyFactory.deploy(initData, masterContract.address);
@@ -62,7 +69,8 @@ const snapshot = async () => {
         mockOracle,
         masterContract,
         lendingPair,
-        mockLiquidator
+        mockLiquidator,
+        mockSwapper
     }
 }
 
@@ -149,6 +157,7 @@ describe("Lending Pair", () => {
             ethers.constants.AddressZero,
             ethers.constants.AddressZero,
             0,
+            ethers.constants.AddressZero,
             ethers.constants.AddressZero
         )).to.be.revertedWith("Already initialized");
 
@@ -162,6 +171,7 @@ describe("Lending Pair", () => {
             ethers.constants.AddressZero,
             ethers.constants.AddressZero,
             0,
+            ethers.constants.AddressZero,
             ethers.constants.AddressZero
         )).to.be.revertedWith("Initializing master contract");
     });
@@ -172,7 +182,8 @@ describe("Lending Pair", () => {
             stablecoin,
             mockOracle,
             otherAddress1,
-            feeReceiver
+            feeReceiver,
+            mockSwapper
         } = await snapshot();
 
         const ENTRY_FEE = await lendingPair.ENTRY_FEE();
@@ -196,6 +207,8 @@ describe("Lending Pair", () => {
         expect(getLendAsset).to.eq(stablecoin.address);
         const getOracle = await lendingPair.getOracle();
         expect(getOracle).to.eq(mockOracle.address);
+        const getSwapper = await lendingPair.getSwapper();
+        expect(getSwapper).to.eq(mockSwapper.address);
         const getColBal = await lendingPair.getCollateralBalance(otherAddress1.address);
         expect(getColBal).to.eq(0);
         const getUserBorrow = await lendingPair.getUserBorrow(otherAddress1.address);
@@ -302,6 +315,13 @@ describe("Lending Pair", () => {
             "Unauthorized"
         );
 
+        await expect(masterContract.connect(otherAddress1).changeSwapper(otherAddress1.address)).to.be.revertedWith(
+            "Unauthorized"
+        );
+        await expect(lendingPair.connect(otherAddress1).changeSwapper(otherAddress1.address)).to.be.revertedWith(
+            "Unauthorized"
+        );
+
         await expect(masterContract.connect(otherAddress1).burnStablecoin(1)).to.be.revertedWith(
             "Unauthorized"
         );
@@ -336,6 +356,10 @@ describe("Lending Pair", () => {
         await lendingPair.changeOracle(otherAddress1.address);
         const o = await lendingPair.getOracle();
         expect(o).to.eq(otherAddress1.address);
+
+        await lendingPair.changeSwapper(otherAddress1.address);
+        const s = await lendingPair.getSwapper();
+        expect(s).to.eq(otherAddress1.address);
 
         await lendingPair.changeMaxLtv(69);
         const mltv = await lendingPair.MAX_LTV();
