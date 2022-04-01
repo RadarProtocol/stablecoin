@@ -3,6 +3,7 @@ import { expect } from "chai";
 import { BigNumber, BigNumberish, Contract } from "ethers";
 import { ethers } from "hardhat";
 import { LendingPair, LickHitter, RadarUSD, MockLiquidator } from "../typechain";
+import { MockSwapper } from "../typechain/MockSwapper";
 
 const DUST = ethers.utils.parseEther('0.0001');
 
@@ -27,7 +28,13 @@ const snapshot = async () => {
 
     const masterContract = await masterFactory.deploy();
 
-    const initInterface = new ethers.utils.Interface(["function init(address _collateral,address _lendAsset,uint256 _entryFee,uint256 _exitFee,uint256 _liquidationIncentive,uint256 _radarLiqFee,address _yieldVault,address _feeReceiver,uint256 _maxLTV,address _oracle)"]);
+    const mockSwapperFactory = await ethers.getContractFactory("MockSwapper");
+    const mockSwapper = await mockSwapperFactory.deploy(
+        yieldVault.address,
+        stablecoin.address
+    );
+
+    const initInterface = new ethers.utils.Interface(["function init(address _collateral,address _lendAsset,uint256 _entryFee,uint256 _exitFee,uint256 _liquidationIncentive,uint256 _radarLiqFee,address _yieldVault,address _feeReceiver,uint256 _maxLTV,address _oracle,address _swapper)"]);
     const initData = initInterface.encodeFunctionData("init", [
         collateral.address,
         stablecoin.address,
@@ -38,7 +45,8 @@ const snapshot = async () => {
         yieldVault.address,
         feeReceiver.address,
         9200, // 92%
-        mockOracle.address
+        mockOracle.address,
+        mockSwapper.address
     ]);
 
     const lendingPairProxy = await proxyFactory.deploy(initData, masterContract.address);
@@ -62,7 +70,8 @@ const snapshot = async () => {
         mockOracle,
         masterContract,
         lendingPair,
-        mockLiquidator
+        mockLiquidator,
+        mockSwapper
     }
 }
 
@@ -149,6 +158,7 @@ describe("Lending Pair", () => {
             ethers.constants.AddressZero,
             ethers.constants.AddressZero,
             0,
+            ethers.constants.AddressZero,
             ethers.constants.AddressZero
         )).to.be.revertedWith("Already initialized");
 
@@ -162,6 +172,7 @@ describe("Lending Pair", () => {
             ethers.constants.AddressZero,
             ethers.constants.AddressZero,
             0,
+            ethers.constants.AddressZero,
             ethers.constants.AddressZero
         )).to.be.revertedWith("Initializing master contract");
     });
@@ -172,7 +183,8 @@ describe("Lending Pair", () => {
             stablecoin,
             mockOracle,
             otherAddress1,
-            feeReceiver
+            feeReceiver,
+            mockSwapper
         } = await snapshot();
 
         const ENTRY_FEE = await lendingPair.ENTRY_FEE();
@@ -196,6 +208,8 @@ describe("Lending Pair", () => {
         expect(getLendAsset).to.eq(stablecoin.address);
         const getOracle = await lendingPair.getOracle();
         expect(getOracle).to.eq(mockOracle.address);
+        const getSwapper = await lendingPair.getSwapper();
+        expect(getSwapper).to.eq(mockSwapper.address);
         const getColBal = await lendingPair.getCollateralBalance(otherAddress1.address);
         expect(getColBal).to.eq(0);
         const getUserBorrow = await lendingPair.getUserBorrow(otherAddress1.address);
@@ -302,6 +316,13 @@ describe("Lending Pair", () => {
             "Unauthorized"
         );
 
+        await expect(masterContract.connect(otherAddress1).changeSwapper(otherAddress1.address)).to.be.revertedWith(
+            "Unauthorized"
+        );
+        await expect(lendingPair.connect(otherAddress1).changeSwapper(otherAddress1.address)).to.be.revertedWith(
+            "Unauthorized"
+        );
+
         await expect(masterContract.connect(otherAddress1).burnStablecoin(1)).to.be.revertedWith(
             "Unauthorized"
         );
@@ -336,6 +357,10 @@ describe("Lending Pair", () => {
         await lendingPair.changeOracle(otherAddress1.address);
         const o = await lendingPair.getOracle();
         expect(o).to.eq(otherAddress1.address);
+
+        await lendingPair.changeSwapper(otherAddress1.address);
+        const s = await lendingPair.getSwapper();
+        expect(s).to.eq(otherAddress1.address);
 
         await lendingPair.changeMaxLtv(69);
         const mltv = await lendingPair.MAX_LTV();
@@ -1510,6 +1535,249 @@ describe("Lending Pair", () => {
         // Cannot liquidate with invalid data
         await expect(lendingPair.liquidate([investor1.address, investor2.address], [totalAdded], mockLiquidator.address)).to.be.revertedWith("Invalid data");
     });
+    it("hookedDepositAndBorrow", async () => {
+        const {
+            stablecoin,
+            collateral,
+            investor1,
+            investor2,
+            mockSwapper,
+            lendingPair,
+            yieldVault,
+            deployer
+        } = await snapshot();
+
+        const DBhookChecks = async (
+            e1: any,
+            e2: any,
+            i1: SignerWithAddress,
+            i2: SignerWithAddress,
+            lp: LendingPair,
+            cl: RadarUSD,
+            sb: RadarUSD,
+            swapper: Contract,
+            yv: LickHitter,
+            vc: Array<any>
+        ) => {
+            var i = 0;
+
+            expect(e1.event).to.eq(vc[i++]);
+            expect(e1.args!.owner).to.eq(vc[i++]);
+            expect(e1.args!.borrowAmount).to.eq(vc[i++]);
+            expect(e1.args!.receiver).to.eq(vc[i++]);
+
+            expect(e2.event).to.eq(vc[i++]);
+            expect(e2.args!.owner).to.eq(vc[i++]);
+            expect(e2.args!.amount).to.eq(vc[i++]);
+            expect(e2.args!.shares).to.eq(vc[i++]);
+
+            const tbu1 = await lp.getUserBorrow(i1.address);
+            const tbu2 = await lp.getUserBorrow(i2.address);
+            expect(tbu1).to.eq(vc[i++]);
+            expect(tbu2).to.eq(vc[i++]);
+
+            const cbu1 = await lp.getCollateralBalance(i1.address);
+            const cbu2 = await lp.getCollateralBalance(i2.address);
+            expect(cbu1).to.eq(vc[i++]);
+            expect(cbu2).to.eq(vc[i++]);
+
+            const getTB = await lp.getTotalBorrowed();
+            const getTC = await lp.getTotalCollateralDeposited();
+            const getAB = await lp.availableToBorrow();
+            expect(getTB).to.be.closeTo(vc[i++], 1);
+            expect(getTC).to.be.closeTo(vc[i++], 1);
+            expect(getAB).to.be.closeTo(vc[i++], 1);
+
+            const msclbal = await cl.balanceOf(swapper.address);
+            const mssbbal = await sb.balanceOf(swapper.address);
+            expect(msclbal).to.eq(vc[i++]);
+            expect(mssbbal).to.eq(vc[i++]);
+
+            const i1sbbal = await sb.balanceOf(investor1.address);
+            const i2sbbal = await sb.balanceOf(investor2.address);
+            const i1clbbal = await cl.balanceOf(investor1.address);
+            const i2clbal = await cl.balanceOf(investor2.address);
+            expect(i1sbbal).to.eq(vc[i++]);
+            expect(i2sbbal).to.eq(vc[i++]);
+            expect(i1clbbal).to.eq(vc[i++]);
+            expect(i2clbal).to.eq(vc[i++]);
+
+            const lpyvbal = await yv.balanceOf(cl.address, lp.address);
+            expect(lpyvbal).to.eq(vc[i++]);
+        }
+
+        const totalAdded = ethers.utils.parseEther('100000');
+
+        await addStablecoinToLending(
+            stablecoin,
+            yieldVault,
+            lendingPair,
+            totalAdded,
+            deployer
+        );
+
+        await collateral.mint(mockSwapper.address, ethers.utils.parseEther('1'));
+        await collateral.mint(investor1.address, ethers.utils.parseEther('1'));
+        await collateral.connect(investor1).approve(lendingPair.address, ethers.utils.parseEther('1'));
+        await expect(lendingPair.connect(investor1).hookedDepositAndBorrow(
+            ethers.utils.parseEther('1'),
+            ethers.utils.parseEther('10'),
+            "0x00"
+        )).to.be.revertedWith("User not safe");
+        await collateral.connect(investor1).burn(ethers.utils.parseEther('1'));
+        await mockSwapper.depositHook(collateral.address, "0x00"); // To empty contract
+
+        const collateralAmount1 = ethers.utils.parseEther('50'); // $100
+        const collateralAmount2 = ethers.utils.parseEther('100'); // $200
+        
+        // Leverage 15x for both with 92% LTV
+        var borrowAmount1 = collateralAmount1.mul(2).mul(9200).div(10000);
+        var borrowAmount2 = collateralAmount2.mul(2).mul(9200).div(10000);
+        for(var i = 0; i < 5; i++) {
+            borrowAmount1 = borrowAmount1.add(collateralAmount1.mul(2).add(borrowAmount1).mul(9200).div(10000).sub(borrowAmount1));
+            borrowAmount2 = borrowAmount2.add(collateralAmount2.mul(2).add(borrowAmount2).mul(9200).div(10000).sub(borrowAmount2));
+
+            console.log(`
+            Iteration ${i+1}
+            Inv1 borrow amount: ${borrowAmount1}
+            Inv2 borrow amount: ${borrowAmount2}
+            `);
+        }
+
+        // Extra leverage for investor 2
+        for(var i = 0; i < 10; i++) {
+            borrowAmount2 = borrowAmount2.add(collateralAmount2.mul(2).add(borrowAmount2).mul(9200).div(10000).sub(borrowAmount2));
+        }        
+
+        // We should be right at LTV here (including fee) for a leveraged position
+        borrowAmount1 = borrowAmount1.mul(100).div(101).sub(2);
+        borrowAmount2 = borrowAmount2.mul(100).div(101).sub(2);
+        var borrowAmount1Fee = borrowAmount1.div(100);
+        var borrowAmount2Fee = borrowAmount2.div(100);
+
+        // Send swapper exact col per borrowAmount swap and do hookDB for inv1
+        const msbal = await collateral.balanceOf(mockSwapper.address);
+        expect(msbal).to.eq(0);
+        await collateral.mint(mockSwapper.address, borrowAmount1.div(2)); // borrow amount swapped to collateral with no slippage (price of collateral is $2)
+        await collateral.mint(investor1.address, collateralAmount1);
+        await collateral.connect(investor1).approve(lendingPair.address, collateralAmount1);
+        const tx1 = await lendingPair.connect(investor1).hookedDepositAndBorrow(
+            collateralAmount1,
+            borrowAmount1,
+            "0x00"
+        );
+        const rc1 = await tx1.wait();
+        const be1 = rc1.events![2];
+        const cae1 = rc1.events![10];
+        await DBhookChecks(
+            be1,
+            cae1,
+            investor1,
+            investor2,
+            lendingPair,
+            collateral,
+            stablecoin,
+            mockSwapper,
+            yieldVault,
+            [
+                "AssetBorrowed", // borrow event name
+                investor1.address, // borrow event borrower
+                borrowAmount1.add(borrowAmount1Fee), // borrow event borrowed
+                mockSwapper.address, // borrow event receiver
+                "CollateralAdded", // CA event name
+                investor1.address, // CA event owner
+                collateralAmount1.add(borrowAmount1.div(2)), // CA col added
+                collateralAmount1.add(borrowAmount1.div(2)), // CA col added (shares)
+                borrowAmount1.add(borrowAmount1Fee), // inv1 borrow
+                0, // inv2 borrow
+                collateralAmount1.add(borrowAmount1.div(2)), // inv1 coll
+                0, // inv2 coll
+                borrowAmount1.add(borrowAmount1Fee), // total borrowed
+                collateralAmount1.add(borrowAmount1.div(2)), // total COL
+                totalAdded.sub(borrowAmount1).sub(borrowAmount1Fee), // available to borrow
+                0, // collateral swapper bal
+                0, // stablecoin swapper bal
+                0, // inv1 sb bal
+                0, // inv2 sb bal
+                0, // inv1 cl bal
+                0, // inv2 cl bal
+                collateralAmount1.add(borrowAmount1.div(2)) // CL in YV
+            ]
+        );
+
+        // Send swapper exact col per borrowAmount swap and do hookDB for inv2
+        const msbal2 = await collateral.balanceOf(mockSwapper.address);
+        expect(msbal2).to.eq(0);
+        await collateral.mint(mockSwapper.address, borrowAmount2.div(2)); // borrow amount swapped to collateral with no slippage (price of collateral is $2)
+        await collateral.mint(investor2.address, collateralAmount2);
+        await collateral.connect(investor2).approve(lendingPair.address, collateralAmount2);
+        const tx2 = await lendingPair.connect(investor2).hookedDepositAndBorrow(
+            collateralAmount2,
+            borrowAmount2,
+            "0x00"
+        );
+        const rc2 = await tx2.wait();
+        const be2 = rc2.events![2];
+        const cae2 = rc2.events![10];
+        await DBhookChecks(
+            be2,
+            cae2,
+            investor1,
+            investor2,
+            lendingPair,
+            collateral,
+            stablecoin,
+            mockSwapper,
+            yieldVault,
+            [
+                "AssetBorrowed", // borrow event name
+                investor2.address, // borrow event borrower
+                borrowAmount2.add(borrowAmount2Fee), // borrow event borrowed
+                mockSwapper.address, // borrow event receiver
+                "CollateralAdded", // CA event name
+                investor2.address, // CA event owner
+                collateralAmount2.add(borrowAmount2.div(2)), // CA col added
+                collateralAmount2.add(borrowAmount2.div(2)), // CA col added (shares)
+                borrowAmount1.add(borrowAmount1Fee), // inv1 borrow
+                borrowAmount2.add(borrowAmount2Fee), // inv2 borrow
+                collateralAmount1.add(borrowAmount1.div(2)), // inv1 coll
+                collateralAmount2.add(borrowAmount2.div(2)), // inv2 coll
+                borrowAmount1.add(borrowAmount1Fee).add(borrowAmount2).add(borrowAmount2Fee), // total borrowed
+                collateralAmount1.add(borrowAmount1.div(2)).add(collateralAmount2).add(borrowAmount2.div(2)), // total COL
+                totalAdded.sub(borrowAmount1).sub(borrowAmount1Fee).sub(borrowAmount2).sub(borrowAmount2Fee), // available to borrow
+                0, // collateral swapper bal
+                0, // stablecoin swapper bal
+                0, // inv1 sb bal
+                0, // inv2 sb bal
+                0, // inv1 cl bal
+                0, // inv2 cl bal
+                collateralAmount1.add(borrowAmount1.div(2)).add(collateralAmount2).add(borrowAmount2.div(2)) // CL in YV
+            ]
+        );
+
+        // Calculate and print LTVs
+        const ub1 = await lendingPair.getUserBorrow(investor1.address);
+        const ucl1 = await lendingPair.getCollateralBalance(investor1.address);
+        const ltv1 = ub1.mul(100).div(ucl1.mul(2));
+
+        const ub2 = await lendingPair.getUserBorrow(investor2.address);
+        const ucl2 = await lendingPair.getCollateralBalance(investor2.address);
+        const ltv2 = ub2.mul(100).div(ucl2.mul(2));
+
+        expect(ltv1).to.not.eq(ltv2);
+
+        console.log(`
+        LTV Investor 1: ${ltv1}% (Leverage 5x)
+        LTV Investor 2: ${ltv2}% (Leverage 15x)
+        `)
+
+        // We shouldn't be able to borrow for inv2 and we can borrow inv1
+        const bramount = ethers.utils.parseEther('40');
+        await expect(lendingPair.connect(investor2).borrow(investor2.address, bramount)).to.be.revertedWith(
+            "User not safe"
+        );
+        await lendingPair.connect(investor1).borrow(investor1.address, bramount);
+    });
     it("Fees", async () => {
         const {
             investor1,
@@ -1521,7 +1789,8 @@ describe("Lending Pair", () => {
             deployer,
             mockOracle,
             mockLiquidator,
-            feeReceiver
+            feeReceiver,
+            mockSwapper
         } = await snapshot();
 
         const feeCheck = async (
@@ -1631,6 +1900,37 @@ describe("Lending Pair", () => {
         var trp_profit = trp.mul(500).div(10000);
         var radar_fee = trp_profit.mul(1000).div(10000);
         currentFee = currentFee.add(radar_fee);
+
+        await feeCheck(
+            lendingPair,
+            yieldVault,
+            stablecoin,
+            [currentFee]
+        );
+
+        // hookedDepositAndBorrow fees
+        
+        // Leverage 15x for both with 92% LTV
+        var borrowAmount1 = collateralAmount1.mul(2).mul(9200).div(10000);
+        for(var i = 0; i < 5; i++) {
+            borrowAmount1 = borrowAmount1.add(collateralAmount1.mul(2).add(borrowAmount1).mul(9200).div(10000).sub(borrowAmount1));
+        }     
+
+        // We should be right at LTV here (including fee) for a leveraged position
+        borrowAmount1 = borrowAmount1.mul(100).div(101).sub(2);
+        var borrowAmount1Fee = borrowAmount1.div(100);
+
+        // Send swapper exact col per borrowAmount swap and do hookDB for inv1
+        await collateral.mint(mockSwapper.address, borrowAmount1.div(2)); // borrow amount swapped to collateral with no slippage (price of collateral is $2)
+        await collateral.mint(investor1.address, collateralAmount1);
+        await collateral.connect(investor1).approve(lendingPair.address, collateralAmount1);
+        await lendingPair.connect(investor1).hookedDepositAndBorrow(
+            collateralAmount1,
+            borrowAmount1,
+            "0x00"
+        );
+
+        currentFee = currentFee.add(borrowAmount1Fee);
 
         await feeCheck(
             lendingPair,
