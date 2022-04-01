@@ -1789,7 +1789,8 @@ describe("Lending Pair", () => {
             deployer,
             mockOracle,
             mockLiquidator,
-            feeReceiver
+            feeReceiver,
+            mockSwapper
         } = await snapshot();
 
         const feeCheck = async (
@@ -1907,7 +1908,36 @@ describe("Lending Pair", () => {
             [currentFee]
         );
 
-        // TODO: hookedDepositAndBorrow fees
+        // hookedDepositAndBorrow fees
+        
+        // Leverage 15x for both with 92% LTV
+        var borrowAmount1 = collateralAmount1.mul(2).mul(9200).div(10000);
+        for(var i = 0; i < 5; i++) {
+            borrowAmount1 = borrowAmount1.add(collateralAmount1.mul(2).add(borrowAmount1).mul(9200).div(10000).sub(borrowAmount1));
+        }     
+
+        // We should be right at LTV here (including fee) for a leveraged position
+        borrowAmount1 = borrowAmount1.mul(100).div(101).sub(2);
+        var borrowAmount1Fee = borrowAmount1.div(100);
+
+        // Send swapper exact col per borrowAmount swap and do hookDB for inv1
+        await collateral.mint(mockSwapper.address, borrowAmount1.div(2)); // borrow amount swapped to collateral with no slippage (price of collateral is $2)
+        await collateral.mint(investor1.address, collateralAmount1);
+        await collateral.connect(investor1).approve(lendingPair.address, collateralAmount1);
+        await lendingPair.connect(investor1).hookedDepositAndBorrow(
+            collateralAmount1,
+            borrowAmount1,
+            "0x00"
+        );
+
+        currentFee = currentFee.add(borrowAmount1Fee);
+
+        await feeCheck(
+            lendingPair,
+            yieldVault,
+            stablecoin,
+            [currentFee]
+        );
 
         // Claim fees
         await lendingPair.connect(investor1).claimFees();
