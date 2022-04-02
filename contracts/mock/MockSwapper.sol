@@ -15,6 +15,7 @@ contract MockSwapper is ISwapper {
         yieldVault = _yv;
         stablecoin = _sb;
     }
+
     function depositHook(
         address _collateral,
         bytes calldata
@@ -29,5 +30,21 @@ contract MockSwapper is ISwapper {
 
         IERC20(_collateral).approve(yieldVault, _clBal);
         ILickHitter(yieldVault).deposit(_collateral, msg.sender, _clBal);
+    }
+
+    function repayHook(
+        address _collateral,
+        bytes calldata
+    ) external override {
+        // Since this is a mock swapper and it will already have stablecoin
+        // Just receive collateral, burn it, and deposit stablecoin that it has
+
+        uint256 _sbBal = IERC20(stablecoin).balanceOf(address(this));
+        uint256 _clBal = IERC20(_collateral).balanceOf(address(this));
+
+        IRadarUSD(_collateral).burn(_clBal);
+
+        IERC20(stablecoin).approve(yieldVault, _sbBal);
+        ILickHitter(yieldVault).deposit(stablecoin, msg.sender, _sbBal);
     }
 }

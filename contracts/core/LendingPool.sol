@@ -263,6 +263,62 @@ contract LendingPair is ReentrancyGuard {
         require(_userSafe(msg.sender), "User not safe");
     }
 
+    function hookedRepayAndWithdraw(
+        uint256 _directRepayAmount,
+        uint256 _withdrawAmount,
+        bytes calldata _swapData
+    ) external {
+        // 1. Withdraw and send direct repay
+        if (_directRepayAmount != 0) {
+            IERC20(lendAsset).safeTransferFrom(msg.sender, swapper, _directRepayAmount);
+        }
+
+        uint256 _before = ILickHitter(yieldVault).balanceOf(lendAsset, address(this));
+        _withdraw(_withdrawAmount, swapper);
+
+        // 2. Swap for lendAsset
+        ISwapper(swapper).repayHook(
+            collateral,
+            _swapData
+        );
+
+        // 3. Repay loan (use before/after calculation)
+        uint256 _after = ILickHitter(yieldVault).balanceOf(lendAsset, address(this));
+        uint256 _repayAmount = ILickHitter(yieldVault).convertShares(lendAsset, (_after - _before), 0);
+        require( _repayAmount > 0, "Repay 0");
+
+        uint256 _maxRepay = borrows[msg.sender] + ((borrows[msg.sender] * EXIT_FEE) / GENERAL_DIVISOR);
+        
+        uint256 _userRepayAmount;
+        uint256 _fee;
+        if (_repayAmount > _maxRepay) {
+            // Dust will be left, beucase we are
+            // trying to repay more than the
+            // actual loan itself, so we will
+            // be sending the leftover borrowed
+            // assets to the user's LickHitter
+            // account
+            _fee = (borrows[msg.sender] * EXIT_FEE) / GENERAL_DIVISOR;
+            uint256 _dustLeft = _repayAmount - _maxRepay;
+            _userRepayAmount = borrows[msg.sender];
+            totalBorrowed = totalBorrowed - _userRepayAmount;
+            borrows[msg.sender] = 0;
+
+            // Convert to shares and send
+            _dustLeft = ILickHitter(yieldVault).convertShares(lendAsset, 0, _dustLeft);
+            ILickHitter(yieldVault).transferShares(lendAsset, msg.sender, _dustLeft);
+        } else {
+            _fee = (_repayAmount * EXIT_FEE) / GENERAL_DIVISOR;
+            _userRepayAmount = _repayAmount - _fee;
+            totalBorrowed = totalBorrowed - _userRepayAmount;
+            borrows[msg.sender] = borrows[msg.sender] - _userRepayAmount;
+        }
+        accumulatedFees = accumulatedFees + _fee;
+        emit LoanRepaid(msg.sender, _userRepayAmount, msg.sender);
+
+        require(_userSafe(msg.sender), "User not safe");
+    }
+
 
     // Not-reentrant for extra safety
     // The `_liquidator` must implement the

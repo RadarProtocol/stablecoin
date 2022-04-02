@@ -35,4 +35,13 @@ interface ISwapper {
         address _collateral,
         bytes calldata data
     ) external;
+
+    // The contract will swap the received collateral
+    // (everything it has) to stablecoin,
+    // and then deposit everything
+    // into the LendingPair
+    function repayHook(
+        address _collateral,
+        bytes calldata data
+    ) external;
 }
