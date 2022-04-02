@@ -167,7 +167,9 @@ contract LickHitter {
     function transferShares(address _token, address _to, uint256 _amount) external {
         require(balances[_token][msg.sender] >= _amount, "Not enough shares");
 
-        balances[_token][msg.sender] = balances[_token][msg.sender] - _amount;
+        unchecked {
+            balances[_token][msg.sender] = balances[_token][msg.sender] - _amount;
+        }
         balances[_token][_to] = balances[_token][_to] + _amount;
 
         emit ShareTransfer(_token, msg.sender, _to, _amount);
@@ -252,7 +254,10 @@ contract LickHitter {
         uint256 _contractBalance = IERC20(_token).balanceOf(address(this));
         uint256 _bufferSize = bufferSize[_token];
         if (_contractBalance > _bufferSize) {
-            uint256 _depositAmount = _contractBalance - _bufferSize;
+            uint256 _depositAmount;
+            unchecked {
+                _depositAmount = _contractBalance - _bufferSize;
+            }
             IERC20(_token).safeApprove(_strategy, _depositAmount);
             IStrategy(_strategy).depositToStrategy(_token, _depositAmount);
         }
@@ -293,7 +298,9 @@ contract LickHitter {
         require(balances[_token][_payer] >= _shares, "Not enough funds");
 
         totalShareSupply[_token] = totalShareSupply[_token] - _shares;
-        balances[_token][_payer] = balances[_token][_payer] - _shares;
+        unchecked {
+            balances[_token][_payer] = balances[_token][_payer] - _shares;
+        }
 
         uint256 _amountInVault = IERC20(_token).balanceOf(address(this));
         address _strategy = strategies[_token];

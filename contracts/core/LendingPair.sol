@@ -303,7 +303,10 @@ contract LendingPair is ReentrancyGuard {
             // assets to the user's LickHitter
             // account
             _fee = (borrows[msg.sender] * EXIT_FEE) / GENERAL_DIVISOR;
-            uint256 _dustLeft = _repayAmount - _maxRepay;
+            uint256 _dustLeft;
+            unchecked {
+                _dustLeft = _repayAmount - _maxRepay;
+            }
             _userRepayAmount = borrows[msg.sender];
             totalBorrowed = totalBorrowed - _userRepayAmount;
             borrows[msg.sender] = 0;
@@ -343,7 +346,9 @@ contract LendingPair is ReentrancyGuard {
             if(!_userSafe(_user)) {
                 uint256 _repayAmount = borrows[_user] < _repayAmounts[i] ? borrows[_user] : _repayAmounts[i];
                 totalBorrowed = totalBorrowed - _repayAmount;
-                borrows[_user] = borrows[_user] - _repayAmount;
+                unchecked {
+                    borrows[_user] = borrows[_user] - _repayAmount;   
+                }
                 
                 // Collateral removed is collateral of _repayAmount value + liquidation/finder fee
                 // Calculate total collateral to be removed in stablecoin
@@ -352,7 +357,9 @@ contract LendingPair is ReentrancyGuard {
                 _collateralRemoved = (_collateralRemoved * 10**collateralDecimals) / exchangeRate;
                 uint256 _collateralShares = ILickHitter(yieldVault).convertShares(collateral, 0, _collateralRemoved);
                 if (shareBalances[_user] >= _collateralShares) {
-                    shareBalances[_user] = shareBalances[_user] - _collateralShares;
+                    unchecked {
+                        shareBalances[_user] = shareBalances[_user] - _collateralShares;
+                    }
                     totalShares = totalShares - _collateralShares;
                 } else {
                     // In this case, the liquidation will most likely not be profitable
@@ -428,7 +435,6 @@ contract LendingPair is ReentrancyGuard {
     function _withdraw(uint256 _amount, address _receiver) internal {
         uint256 _shares = ILickHitter(yieldVault).convertShares(collateral, 0, _amount);
         require(shareBalances[msg.sender] >= _shares, "Insufficient funds");
-        // TODO: Maybe make more gas efficient
         unchecked {
             shareBalances[msg.sender] = shareBalances[msg.sender] - _shares;   
         }
