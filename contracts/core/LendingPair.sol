@@ -32,6 +32,10 @@ import "./../interfaces/IOracle.sol";
 import "./../interfaces/ILiquidator.sol";
 import "./../interfaces/ISwapper.sol";
 
+/// @title LendingPair
+/// @author Tudor Gheorghiu (tudor@radar.global)
+/// @notice Single collateral asset lending pair, used for
+/// USDR (stablecoin) lending
 contract LendingPair is ReentrancyGuard {
     using SafeERC20 for IERC20;
 
@@ -72,6 +76,10 @@ contract LendingPair is ReentrancyGuard {
     event LoanRepaid(address indexed owner, uint256 repayAmount, address indexed receiver);
     event Liquidated(address indexed user, address indexed liquidator, uint256 repayAmount, uint256 collateralLiquidated);
 
+    /// @notice Manages access control. Only allows master (non-proxy) contract owner to call specific functions.
+    /// @dev If the EIP-1967 storage address is empty, then this is the non-proxy contract
+    /// and fetches the owner address from the storage variable. If it is not empty, it will
+    /// fetch the owner address from the non-proxy contract
     modifier onlyOwner {
         address impl;
         address _ownerAddr;
@@ -89,6 +97,8 @@ contract LendingPair is ReentrancyGuard {
         _;
     }
 
+    /// @notice These functions can only be called on the non-proxy contract
+    /// @dev Just fetches the EIP-1967 storage address and checks it is empty
     modifier onlyNotProxy {
         address impl;
         assembly {
@@ -98,6 +108,13 @@ contract LendingPair is ReentrancyGuard {
         _;
     }
 
+    /// @notice Updates `exchangeRate` variable from the oracle
+    /// @dev This modifier is applied to functions which need an updated
+    /// exchange rate to ensure the calculations are safe. This includes
+    /// any function that will check if a user is or is not 'safe' a.k.a flagged
+    /// for loan liquidation. The liquidation functions also implements this modifier.
+    /// This is made as a modifier so no extra oracle calls (which are expensive) are made
+    /// per transaction.
     modifier updateExchangeRate {
         exchangeRate = IOracle(oracle).getUSDPrice(collateral);
         _;
@@ -107,6 +124,23 @@ contract LendingPair is ReentrancyGuard {
         owner = msg.sender;
     }
 
+    /// @notice Proxy initialization function
+    /// @param _collateral The ERC20 address of the collateral used for lending
+    /// @param _lendAsset The ERC20 address of the asset which will be lended (USDR)
+    /// @param _entryFee The entry fee percentage when borrowing assets (times GENERAL_DIVISOR)
+    /// @param _exitFee The exit fee percentage when repaying loans (times GENERAL_DIVISOR)
+    /// @param _liquidationIncentive The percentage of liquidated collateral which will be added on top of the
+    /// total liquidated collateral that is released, as an incentive/reward for the liquidator
+    /// @param _radarLiqFee The percentage of the earned liquidation incentive (see `_liquidationIncentive`)
+    /// that the liquidator must pay over the flat repayAmount, as a fee. This splits x% of the
+    /// liquidator reward to the Radar ecosystem.
+    /// @param _yieldVault The address of the yield farming vault, which is the `LickHitter` farming contract
+    /// @param _feeReceiver The address which will receive accumulated fees
+    /// @param _maxLTV The maximum Loan-To-Value (LTV) ratio a user can have before
+    /// being flagged for liquidation (times GENERAL_DIVISOR)
+    /// @param _oracle Price oracle which implements the `IOracle` interface
+    /// @param _swapper Assets swapper which implements the `ISwapper` interface
+    /// that will be used for hooked functions.
     function init(
         address _collateral,
         address _lendAsset,

@@ -21,7 +21,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.2;
 
-// Non-Upgradable Proxy for the LendingPool
+/// @title A Non-Upgradable Proxy Contract for LendingPairs
+/// @author Tudor Gheorghiu (tudor@radar.global)
+/// @dev Simple EIP-1967 Proxy Implementation, there will never be
+/// an upgrade function on the target contract
 contract LendingNUP {
 
     constructor(bytes memory _constructorData, address _lendingPool) {
