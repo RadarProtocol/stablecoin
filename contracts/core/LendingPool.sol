@@ -287,18 +287,19 @@ contract LendingPair is ReentrancyGuard {
         uint256 _repayAmount = ILickHitter(yieldVault).convertShares(lendAsset, (_after - _before), 0);
         require( _repayAmount > 0, "Repay 0");
 
-        uint256 _fee = (_repayAmount * EXIT_FEE) / GENERAL_DIVISOR;
-        accumulatedFees = accumulatedFees + _fee;
-        uint256 _userRepayAmount = _repayAmount - _fee;
-
-        if (_userRepayAmount > borrows[msg.sender]) {
+        uint256 _maxRepay = borrows[msg.sender] + ((borrows[msg.sender] * EXIT_FEE) / GENERAL_DIVISOR);
+        
+        uint256 _userRepayAmount;
+        uint256 _fee;
+        if (_repayAmount > _maxRepay) {
             // Dust will be left, beucase we are
             // trying to repay more than the
             // actual loan itself, so we will
             // be sending the leftover borrowed
             // assets to the user's LickHitter
             // account
-            uint256 _dustLeft = _userRepayAmount - borrows[msg.sender];
+            _fee = (borrows[msg.sender] * EXIT_FEE) / GENERAL_DIVISOR;
+            uint256 _dustLeft = _repayAmount - _maxRepay;
             _userRepayAmount = borrows[msg.sender];
             totalBorrowed = totalBorrowed - _userRepayAmount;
             borrows[msg.sender] = 0;
@@ -307,9 +308,12 @@ contract LendingPair is ReentrancyGuard {
             _dustLeft = ILickHitter(yieldVault).convertShares(lendAsset, 0, _dustLeft);
             ILickHitter(yieldVault).transferShares(lendAsset, msg.sender, _dustLeft);
         } else {
+            _fee = (_repayAmount * EXIT_FEE) / GENERAL_DIVISOR;
+            _userRepayAmount = _repayAmount - _fee;
             totalBorrowed = totalBorrowed - _userRepayAmount;
             borrows[msg.sender] = borrows[msg.sender] - _userRepayAmount;
         }
+        accumulatedFees = accumulatedFees + _fee;
         emit LoanRepaid(msg.sender, _userRepayAmount, msg.sender);
 
         require(_userSafe(msg.sender), "User not safe");
