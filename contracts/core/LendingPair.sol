@@ -49,7 +49,6 @@ contract LendingPair is ReentrancyGuard {
     address private swapper;
 
     uint256 private exchangeRate;
-    uint256 private exchangeRateLastUpdate;
 
     uint256 public ENTRY_FEE;
     uint256 public EXIT_FEE;
@@ -96,6 +95,11 @@ contract LendingPair is ReentrancyGuard {
             impl := sload(0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc)
         }
         require(impl == address(0), "Cannot call this on proxy");
+        _;
+    }
+
+    modifier updateExchangeRate {
+        exchangeRate = IOracle(oracle).getUSDPrice(collateral);
         _;
     }
 
@@ -198,12 +202,12 @@ contract LendingPair is ReentrancyGuard {
         _deposit(_amount);
     }
 
-    function withdraw(uint256 _amount, address _receiver) external {
+    function withdraw(uint256 _amount, address _receiver) updateExchangeRate external {
         _withdraw(_amount, _receiver);
         require(_userSafe(msg.sender), "User not safe");
     }
 
-    function borrow(address _receivingAddress, uint256 _amount) external {
+    function borrow(address _receivingAddress, uint256 _amount) updateExchangeRate external {
         _borrow(_receivingAddress, _amount);
         require(_userSafe(msg.sender), "User not safe");
     }
@@ -216,7 +220,7 @@ contract LendingPair is ReentrancyGuard {
         uint256 _depositAmount,
         uint256 _borrowAmount,
         address _receivingAddress
-    ) external {
+    ) external updateExchangeRate {
         _deposit(_depositAmount);
         _borrow(_receivingAddress, _borrowAmount);
         require(_userSafe(msg.sender), "User not safe");
@@ -227,7 +231,7 @@ contract LendingPair is ReentrancyGuard {
         address _repaymentReceiver,
         uint256 _withdrawAmount,
         address _withdrawReceiver
-    ) external {
+    ) external updateExchangeRate {
         _repay(_repaymentReceiver, _repayAmount);
         _withdraw(_withdrawAmount, _withdrawReceiver);
         require(_userSafe(msg.sender), "User not safe");
@@ -237,7 +241,7 @@ contract LendingPair is ReentrancyGuard {
         uint256 _depositAmount,
         uint256 _borrowAmount,
         bytes calldata _swapData
-    ) external {
+    ) external updateExchangeRate {
         uint256 _before = ILickHitter(yieldVault).balanceOf(collateral, address(this));
         // 1. Borrow and send direct deposit
         _borrow(swapper, _borrowAmount);
@@ -267,7 +271,7 @@ contract LendingPair is ReentrancyGuard {
         uint256 _directRepayAmount,
         uint256 _withdrawAmount,
         bytes calldata _swapData
-    ) external {
+    ) external updateExchangeRate {
         // 1. Withdraw and send direct repay
         if (_directRepayAmount != 0) {
             IERC20(lendAsset).safeTransferFrom(msg.sender, swapper, _directRepayAmount);
@@ -294,7 +298,7 @@ contract LendingPair is ReentrancyGuard {
         if (_repayAmount > _maxRepay) {
             // Dust will be left, beucase we are
             // trying to repay more than the
-            // actual loan itself, so we will
+            // actual loan itself (+ exit fee), so we will
             // be sending the leftover borrowed
             // assets to the user's LickHitter
             // account
@@ -328,9 +332,8 @@ contract LendingPair is ReentrancyGuard {
         address[] calldata _users,
         uint256[] calldata _repayAmounts,
         address _liquidator
-    ) external nonReentrant {
+    ) external updateExchangeRate nonReentrant {
         require(_users.length == _repayAmounts.length, "Invalid data");
-        uint256 _exchangeRate = _getExchangeRate();
 
         uint256 _totalCollateralLiquidated;
         uint256 _totalRepayRequired;
@@ -346,7 +349,7 @@ contract LendingPair is ReentrancyGuard {
                 // Calculate total collateral to be removed in stablecoin
                 uint256 _collateralRemoved = (_repayAmount + ((LIQUIDATION_INCENTIVE * _repayAmount) / GENERAL_DIVISOR));
                 // Convert to actual collateral
-                _collateralRemoved = (_collateralRemoved * 10**collateralDecimals) / _exchangeRate;
+                _collateralRemoved = (_collateralRemoved * 10**collateralDecimals) / exchangeRate;
                 uint256 _collateralShares = ILickHitter(yieldVault).convertShares(collateral, 0, _collateralRemoved);
                 if (shareBalances[_user] >= _collateralShares) {
                     shareBalances[_user] = shareBalances[_user] - _collateralShares;
@@ -397,19 +400,8 @@ contract LendingPair is ReentrancyGuard {
 
     // Internal functions
 
-    // Use this function to only fetch exchange rate 1 time / TX and save gas
-    function _getExchangeRate() internal returns (uint256) {
-        if (block.number > exchangeRateLastUpdate) {
-            exchangeRate = IOracle(oracle).getUSDPrice(collateral);
-            exchangeRateLastUpdate = block.number;
-        }
-
-        return exchangeRate;
-    }
-
     // Returns true if user is safe and doesn't need to be liquidated
-    function _userSafe(address _user) internal returns (bool) {
-        uint256 _rate = _getExchangeRate();
+    function _userSafe(address _user) internal view returns (bool) {
         uint256 _borrowed = borrows[_user];
         uint256 _collateral = _userCollateral(_user);
         if (_borrowed == 0) {
@@ -419,7 +411,7 @@ contract LendingPair is ReentrancyGuard {
             return false;
         }
 
-        uint256 _collateralValue = (_collateral * _rate) / (10**collateralDecimals);
+        uint256 _collateralValue = (_collateral * exchangeRate) / (10**collateralDecimals);
         // Price has 18 decimals and stablecoin has 18 decimals
         return ((_collateralValue * MAX_LTV) / GENERAL_DIVISOR) >= _borrowed;
     }
@@ -534,6 +526,13 @@ contract LendingPair is ReentrancyGuard {
 
     function availableToBorrow() external view returns (uint256) {
         return _availableToBorrow();
+    }
+
+    // Note: This is view only and exchange rate will not
+    // be updated (until an actual important call happens)
+    // so the result of this function may not be accurate
+    function isUserSafe(address _user) external view returns (bool) {
+        return _userSafe(_user);
     }
 
 }
