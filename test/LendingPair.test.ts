@@ -2193,7 +2193,89 @@ describe("Lending Pair", () => {
             [currentFee]
         );
 
-        // TODO: hookedRepayAndWithdraw fee
+        // hookedRepayAndWithdraw fee
+
+        // borrow again and repay
+        await mockOracle.changePrice(ethers.utils.parseEther('2'));
+        var borrowAmount1 = collateralAmount1.mul(2).mul(9200).div(10000);
+        var borrowAmount2 = collateralAmount2.mul(2).mul(9200).div(10000);
+        // We should be right at LTV here (including fee)
+        borrowAmount1 = borrowAmount1.mul(100).div(101).sub(2);
+        borrowAmount2 = borrowAmount2.mul(100).div(101).sub(2);
+        var borrowAmount1Fee = borrowAmount1.div(100);
+        var borrowAmount2Fee = borrowAmount2.div(100);
+
+        await depositAndBorrow(
+            investor1,
+            lendingPair,
+            collateral,
+            collateralAmount1,
+            borrowAmount1,
+            investor1
+        );
+        currentFee = currentFee.add(borrowAmount1Fee);
+        await feeCheck(
+            lendingPair,
+            yieldVault,
+            stablecoin,
+            [currentFee]
+        );
+        
+        await depositAndBorrow(
+            investor2,
+            lendingPair,
+            collateral,
+            collateralAmount2,
+            borrowAmount2,
+            investor2
+        );
+        currentFee = currentFee.add(borrowAmount2Fee);
+        await feeCheck(
+            lendingPair,
+            yieldVault,
+            stablecoin,
+            [currentFee]
+        );
+
+        var repayAmount1 = await lendingPair.getUserBorrow(investor1.address);
+        var repayAmount2 = borrowAmount2.div(2);
+        var directRepayAmount1 = 0;
+        var directyRepayAmount2 = repayAmount2.div(2);
+        var repayAmount1Collateral = repayAmount1.sub(directRepayAmount1).div(2);
+        var repayAmount2Collateral = repayAmount2.sub(directyRepayAmount2).div(2);
+        var repayFee1 = repayAmount1.div(100);
+        var repayFee2 = repayAmount2.div(100);
+
+        // Fully repay loan for investor 1 (leave dust)
+        await stablecoin.mint(mockSwapper.address, repayAmount1.add(repayFee1).add(DUST));
+        await lendingPair.connect(investor1).hookedRepayAndWithdraw(
+            directRepayAmount1,
+            repayAmount1Collateral,
+            "0x00"
+        );
+        currentFee = currentFee.add(repayFee1)
+        await feeCheck(
+            lendingPair,
+            yieldVault,
+            stablecoin,
+            [currentFee]
+        );
+
+        await stablecoin.mint(mockSwapper.address, repayAmount2Collateral.mul(2));
+        await stablecoin.mint(investor2.address, directyRepayAmount2);
+        await stablecoin.connect(investor2).approve(lendingPair.address, directyRepayAmount2);
+        await lendingPair.connect(investor2).hookedRepayAndWithdraw(
+            directyRepayAmount2,
+            repayAmount2Collateral,
+            "0x00"
+        );
+        currentFee = currentFee.add(repayFee2);
+        await feeCheck(
+            lendingPair,
+            yieldVault,
+            stablecoin,
+            [currentFee]
+        );
 
         // Claim fees
         await lendingPair.connect(investor1).claimFees();
