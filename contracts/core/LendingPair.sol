@@ -528,4 +528,11 @@ contract LendingPair is ReentrancyGuard {
         return _availableToBorrow();
     }
 
+    // Note: This is view only and exchange rate will not
+    // be updated (until an actual important call happens)
+    // so the result of this function may not be accurate
+    function isUserSafe(address _user) external view returns (bool) {
+        return _userSafe(_user);
+    }
+
 }

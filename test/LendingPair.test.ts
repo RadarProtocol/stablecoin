@@ -75,6 +75,15 @@ const snapshot = async () => {
     }
 }
 
+const checkUserIsSafe = async (
+    user: SignerWithAddress,
+    lp: LendingPair,
+    shouldBeSafe: Boolean
+) => {
+    const answer = await lp.isUserSafe(user.address);
+    expect(answer).to.eq(shouldBeSafe)
+}
+
 const addStablecoinToLending = async (
     stablecoin: RadarUSD,
     yieldVault: LickHitter,
@@ -452,6 +461,9 @@ describe("Lending Pair", () => {
         const af3 = await collateral.balanceOf(yieldVault.address);
         expect(af1).to.eq(af2).to.eq(0);
         expect(af3).to.eq(amount1.add(amount2));
+
+        await checkUserIsSafe(investor1, lendingPair, true);
+        await checkUserIsSafe(investor2, lendingPair, true);
     });
     it("Withdraw", async () => {
         const {
@@ -576,6 +588,9 @@ describe("Lending Pair", () => {
                 0 // Shares of collateral in yieldVault owned by lendingPair
             ]
         );
+
+        await checkUserIsSafe(investor1, lendingPair, true);
+        await checkUserIsSafe(investor2, lendingPair, true);
     });
     it("Borrow", async () => {
         const {
@@ -711,6 +726,9 @@ describe("Lending Pair", () => {
 
         await expect(lendingPair.connect(investor1).withdraw(DUST, investor1.address)).to.be.revertedWith("User not safe");
         await expect(lendingPair.connect(investor2).withdraw(DUST, investor1.address)).to.be.revertedWith("User not safe");
+
+        await checkUserIsSafe(investor1, lendingPair, true);
+        await checkUserIsSafe(investor2, lendingPair, true);
     });
     it("Repay", async () => {
         const {
@@ -897,6 +915,9 @@ describe("Lending Pair", () => {
                 tmpAmount.mul(2).sub(borrowAmount2Fee.mul(2)).sub(repayFee2).sub(borrowAmount2).sub(repayFee3) // Stablecoin balance inv2
             ]
         );
+
+        await checkUserIsSafe(investor1, lendingPair, true);
+        await checkUserIsSafe(investor2, lendingPair, true);
     });
     it("Deposit and Borrow", async () => {
         const {
@@ -1109,6 +1130,9 @@ describe("Lending Pair", () => {
                 totalAdded.sub(borrowAmount1).sub(borrowAmount1Fee).sub((borrowAmount2).add(borrowAmount2Fee).mul(2)) // Left to borrow
             ]
         );
+
+        await checkUserIsSafe(investor1, lendingPair, true);
+        await checkUserIsSafe(investor2, lendingPair, true);
     });
     it("Repay and Withdraw", async () => {
         const {
@@ -1332,6 +1356,9 @@ describe("Lending Pair", () => {
                 investor1.address
             )
         ).to.be.revertedWith("User not safe");
+
+        await checkUserIsSafe(investor1, lendingPair, true);
+        await checkUserIsSafe(investor2, lendingPair, true);
     });
     it("Liquidate", async () => {
         const {
@@ -1343,7 +1370,8 @@ describe("Lending Pair", () => {
             yieldVault,
             deployer,
             collateral,
-            mockOracle
+            mockOracle,
+            otherAddress1
         } = await snapshot();
 
         const liquidateChecks = async (
@@ -1451,6 +1479,15 @@ describe("Lending Pair", () => {
         // Lower collateral value
         await mockOracle.changePrice(ethers.utils.parseEther('1.95'));
 
+        // Do this to update oracle price
+        await collateral.mint(otherAddress1.address, 10);
+        await collateral.connect(otherAddress1).approve(lendingPair.address, 10);
+        await lendingPair.connect(otherAddress1).deposit(10);
+        await lendingPair.connect(otherAddress1).withdraw(10, otherAddress1.address);
+
+        await checkUserIsSafe(investor1, lendingPair, false);
+        await checkUserIsSafe(investor2, lendingPair, false);
+
         // Try liquidate with 0 tokens in mockLiquidator contract (FAIL)
         await expect(lendingPair.liquidate(
             [investor1.address, investor2.address],
@@ -1534,6 +1571,9 @@ describe("Lending Pair", () => {
 
         // Cannot liquidate with invalid data
         await expect(lendingPair.liquidate([investor1.address, investor2.address], [totalAdded], mockLiquidator.address)).to.be.revertedWith("Invalid data");
+
+        await checkUserIsSafe(investor1, lendingPair, true);
+        await checkUserIsSafe(investor2, lendingPair, true);
     });
     it("hookedDepositAndBorrow", async () => {
         const {
@@ -1781,6 +1821,9 @@ describe("Lending Pair", () => {
             "User not safe"
         );
         await lendingPair.connect(investor1).borrow(investor1.address, bramount);
+
+        await checkUserIsSafe(investor1, lendingPair, true);
+        await checkUserIsSafe(investor2, lendingPair, true);
     });
     it("hookedRepayAndWithdraw", async () => {
         const {
@@ -2031,6 +2074,9 @@ describe("Lending Pair", () => {
                 0, // inv2 SB LickHitter bal
             ]
         );
+
+        await checkUserIsSafe(investor1, lendingPair, true);
+        await checkUserIsSafe(investor2, lendingPair, true);
     });
     it("Fees", async () => {
         const {
