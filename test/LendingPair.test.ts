@@ -194,7 +194,9 @@ describe("Lending Pair", () => {
             mockOracle,
             otherAddress1,
             feeReceiver,
-            mockSwapper
+            mockSwapper,
+            masterContract,
+            deployer
         } = await snapshot();
 
         const ENTRY_FEE = await lendingPair.ENTRY_FEE();
@@ -232,6 +234,16 @@ describe("Lending Pair", () => {
         expect(uF).to.eq(0);
         const atb = await lendingPair.availableToBorrow();
         expect(atb).to.eq(0);
+
+        const lpOwner = await lendingPair.getOwner();
+        const masterOwner = await masterContract.getOwner();
+        expect(lpOwner).to.eq(ethers.constants.AddressZero);
+        expect(masterOwner).to.eq(deployer.address);
+
+        const lpImplementation = await lendingPair.getImplementation();
+        const masterImplementation = await masterContract.getImplementation();
+        expect(lpImplementation).to.eq(masterContract.address);
+        expect(masterImplementation).to.eq(ethers.constants.AddressZero);
     });
     it("Owner - master/proxy", async () => {
         const {

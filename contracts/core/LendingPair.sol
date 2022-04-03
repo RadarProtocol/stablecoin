@@ -536,7 +536,7 @@ contract LendingPair is ReentrancyGuard {
 
     // Internal functions
 
-    // Returns true if user is safe and doesn't need to be liquidated
+    /// @dev Returns true if user is safe and doesn't need to be liquidated
     function _userSafe(address _user) internal view returns (bool) {
         uint256 _borrowed = borrows[_user];
         uint256 _collateral = _userCollateral(_user);
@@ -588,7 +588,7 @@ contract LendingPair is ReentrancyGuard {
         emit AssetBorrowed(msg.sender, _borrowAmount, _receiver);
     }
 
-    // You will have to pay a little more than `_amount` because of the exit fee
+    /// @notice You will have to pay a little more than `_amount` because of the exit fee
     function _repay(address _receiver, uint256 _amount) internal {
         uint256 _fee = (_amount * EXIT_FEE) / GENERAL_DIVISOR;
         accumulatedFees = accumulatedFees + _fee;
@@ -615,57 +615,88 @@ contract LendingPair is ReentrancyGuard {
 
     // State Getters
 
+    /// @return Returns the owner of this contract
+    /// @notice Returns address(0) if this is a proxy,
+    /// since the actual owner is the owner of the
+    /// non-proxy contract
     function getOwner() external view returns (address) {
         return owner;
     }
 
+    /// @return impl_ Returns the non-proxy/master contract
+    /// @notice if this is a proxy. Otherwise, returns address(0)
+    function getImplementation() external view returns (address impl_) {
+        assembly {
+            impl_ := sload(0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc)
+        }
+    }
+
+    /// @return The pending owner of the contract before accepting ownership
+    /// @notice Always returns address(0) if this is a proxy contract.
     function getPendingOwner() external view returns (address) {
         return pendingOwner;
     }
 
+    /// @return Address of collateral
     function getCollateral() external view returns (address) {
         return collateral;
     }
 
+    /// @return Address of the lend asset (USDR)
     function getLendAsset() external view returns (address) {
         return lendAsset;
     }
 
+    /// @return Address of the oracle.
     function getOracle() external view returns (address) {
         return oracle;
     }
 
+    /// @return Address of the swapper.
     function getSwapper() external view returns (address) {
         return swapper;
     }
 
+    /// @return Returns how much collateral a user has deposited in the `LendingPair`
+    /// @param _user Address of the user
     function getCollateralBalance(address _user) external view returns (uint256) {
         return _userCollateral(_user);
     }
 
+    /// @return Returns how much USDR a user has currently borrowed.
+    /// @param _user Address of the user
     function getUserBorrow(address _user) external view returns (uint256) {
         return borrows[_user];
     }
 
+    /// @return How much collateral is deposited in this `LendingPair`
     function getTotalCollateralDeposited() external view returns (uint256) {
         return ILickHitter(yieldVault).convertShares(collateral, totalShares, 0);
     }
 
+    /// @return Total amount of borrowed USDR from this `LendingPair`
     function getTotalBorrowed() external view returns (uint256) {
         return totalBorrowed;
     }
 
+    /// @return Amount of unclaimed fees in USDR
     function unclaimedFees() external view returns (uint256) {
         return ILickHitter(yieldVault).convertShares(lendAsset, 0, accumulatedFees);
     }
 
+    /// @return Amount of USDR available to borrow
+    /// @dev This is just the amount of stablecoin this contract owns
+    /// in the `LickHitter` minus any unclaimed fees.
     function availableToBorrow() external view returns (uint256) {
         return _availableToBorrow();
     }
 
-    // Note: This is view only and exchange rate will not
-    // be updated (until an actual important call happens)
-    // so the result of this function may not be accurate
+    /// @notice This is view only and exchange rate will not
+    /// be updated (until an actual important call happens)
+    /// so the result of this function may not be accurate.
+    /// @param _user Address of the user.
+    /// @return If a user is or not safe a.k.a. flagged for liquidation.
+    /// If this returns false, the user is not safe and flagged for liquidation.
     function isUserSafe(address _user) external view returns (bool) {
         return _userSafe(_user);
     }
