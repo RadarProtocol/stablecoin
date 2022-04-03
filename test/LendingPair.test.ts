@@ -55,7 +55,8 @@ const snapshot = async () => {
     const mockLiqFactory = await ethers.getContractFactory("MockLiquidator");
     const mockLiquidator = await mockLiqFactory.deploy(
         stablecoin.address,
-        lendingPair.address
+        lendingPair.address,
+        yieldVault.address
     );
 
     return {
@@ -1511,7 +1512,7 @@ describe("Lending Pair", () => {
         const r1 = await tx1.wait();
         const le1 = r1.events![0];
         const le2 = r1.events![1];
-        const le3 = iface.parseLog(r1.events![5]);
+        const le3 = iface.parseLog(r1.events![8]);
 
         var cr1 = borrowAmount1.add(borrowAmount1Fee);
         cr1 = cr1.add(cr1.mul(500).div(10000));

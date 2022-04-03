@@ -331,8 +331,8 @@ contract LendingPair is ReentrancyGuard {
     /// @param _borrowAmount How much USDR to borrow that will be swapped to collateral.
     /// @param _swapData Data containing slippage, swap routes, etc. This is different for each
     /// swapper contract. It is the caller's responsability to check this `_swapData` will not
-    /// partially fill an order, or leave remaining collateral/USDR assets in the swapper,
-    /// since those assets will be lost.
+    /// partially fill an order, or leave any remaining USDR in the swapper,
+    /// since those assets will be lost if not transffered during this transaction.
     function hookedDepositAndBorrow(
         uint256 _depositAmount,
         uint256 _borrowAmount,
@@ -363,6 +363,27 @@ contract LendingPair is ReentrancyGuard {
         require(_userSafe(msg.sender), "User not safe");
     }
 
+    /// @notice Uses collateral to repay an outstanding loan. This can be called by a user
+    /// to reduce his LTV (and his risk), or he could also repay his entire loan using his collateral.
+    /// If too much USDR is received from the swapped collateral to cover both the user's loan
+    /// and the repayment fee, the rest will be transferred to the user's `LickHitter` account.
+    /// @dev This function withdraws collateral from the user's account and transfers it to the
+    /// swapper contract. The user can also send an optional direct USDR repayment which will also be
+    /// transferred to the swapper contract. The swapper then swaps the user's collateral for
+    /// USDR and deposits all its USDR balance to the LendingPair's `LickHitter` account (including
+    /// the optional direct repayment amount). This function then calculates how many USDR shares
+    /// were added to its balance and considers them a repayment for the user's loan. We also need
+    /// to update the exchange rate and check if the user is safe at the end since a withdraw
+    /// operation takes place.
+    /// @param _directRepayAmount An optional amount of USDR that will be used for this loan
+    /// repayment. If the user doesn't want to directly repay a part of his loan from his USDR balance,
+    /// he will set this to 0. If it is not 0, the user must have USDR allowance towards this contract.
+    /// @param _withdrawAmount How much collateral to withdraw that will be swapped and used for
+    /// repaying the user's loan.
+    /// @param _swapData Data containing slippage, swap routes, etc. This is different for each
+    /// swapper contract. It is the caller's responsability to check this `_swapData` will not
+    /// partially fill an order, or leave any remaining collateral assets in the swapper,
+    /// since those assets will be lost if not transffered during this transaction.
     function hookedRepayAndWithdraw(
         uint256 _directRepayAmount,
         uint256 _withdrawAmount,
@@ -422,11 +443,22 @@ contract LendingPair is ReentrancyGuard {
         require(_userSafe(msg.sender), "User not safe");
     }
 
-
-    // Not-reentrant for extra safety
-    // The `_liquidator` must implement the
-    // ILiquidator interface
-    // _repayAmounts in USDR
+    /// @notice Liquidates one or multiple users which are flagged for liquidation
+    /// (a.k.a. "not safe"). The user calling this function must have the address
+    /// of a special liquidator contract which will receive liquidated collateral
+    /// and has the responsability to swap it for USDR and deposit it into
+    /// the `LendingPair`'s `LickHitter` account.
+    /// @dev This function is non-reentrant for extra protection. It just
+    /// loops through the given users, checks if they are flagged for liquidation and
+    /// calculates the repayment required (including the ecosystem liquidation fee)
+    /// and collateral (plus collateral reward/incentive) which will be sent out (for swapping).
+    /// It then checks that the liquidator contract repaid the needed assets.
+    /// @param _users List of users to liquidate.
+    /// @param _repayAmounts For each user, how much of their loan to repay.
+    /// You can just use a number bigger than their entire loan to repay their
+    /// whole loan.
+    /// @param _liquidator Address of the liquidator contract which will manage the
+    /// swapping and repayment. Must implement the `ILiquidator` interface.
     function liquidate(
         address[] calldata _users,
         uint256[] calldata _repayAmounts,
@@ -487,17 +519,18 @@ contract LendingPair is ReentrancyGuard {
         ILickHitter(yieldVault).withdraw(collateral, _liquidator, _collShares);
 
         // Perform Liquidation
+        uint256 _before = ILickHitter(yieldVault).balanceOf(lendAsset, address(this));
         ILiquidator(_liquidator).liquidateHook(
             collateral,
             msg.sender,
             _totalRepayRequired,
             _totalCollateralLiquidated
         );
+        uint256 _after = ILickHitter(yieldVault).balanceOf(lendAsset, address(this));
+        uint256 _repaidAmount = ILickHitter(yieldVault).convertShares(lendAsset, (_after - _before), 0);
 
-        // Get the stablecoin and deposit to vault
-        IERC20(lendAsset).safeTransferFrom(_liquidator, address(this), _totalRepayRequired);
-        IERC20(lendAsset).safeApprove(yieldVault, _totalRepayRequired);
-        ILickHitter(yieldVault).deposit(lendAsset, address(this), _totalRepayRequired);
+        // Check the repayment was made
+        require(_repaidAmount >= _totalRepayRequired, "Repayment not made");
         
     }
 
