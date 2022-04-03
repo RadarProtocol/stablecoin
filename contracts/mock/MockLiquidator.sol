@@ -2,12 +2,14 @@
 pragma solidity ^0.8.2;
 
 import "./../interfaces/ILiquidator.sol";
+import "./../interfaces/ILickHitter.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract MockLiquidator is ILiquidator {
 
     address private stablecoin;
     address private lp;
+    address private yv;
 
     event LiqDebugEvent(
         address token,
@@ -16,9 +18,10 @@ contract MockLiquidator is ILiquidator {
         uint256 totalCollateralReceived
     );
 
-    constructor(address _sb, address _lp) {
+    constructor(address _sb, address _lp, address _yv) {
         stablecoin = _sb;
         lp = _lp;
+        yv = _yv;
     }
 
     function liquidateHook(
@@ -28,8 +31,9 @@ contract MockLiquidator is ILiquidator {
         uint256 _collateralLiquidated
     ) external override {
         require(msg.sender == lp);
-        // Just receive collateral and approve for repay amount
-        IERC20(stablecoin).approve(lp, _repayAmount);
+        // Just receive collateral and deposit for repay amount
+        IERC20(stablecoin).approve(yv, _repayAmount);
+        ILickHitter(yv).deposit(stablecoin, lp, _repayAmount);
         emit LiqDebugEvent(_token, _initiator, _repayAmount, _collateralLiquidated);
     }
 }

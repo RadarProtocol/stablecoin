@@ -24,6 +24,10 @@ pragma solidity ^0.8.2;
 import "./../interfaces/IOracle.sol";
 import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 
+/// @title LendingOracleAggregator
+/// @author Tudor Gheorghiu (tudor@radar.global)
+/// @notice Oracle aggregator supporting multiple
+/// oracle types. Used in `LendingPair`
 contract LendingOracleAggregator is IOracle {
 
     enum FeedType {
@@ -91,6 +95,9 @@ contract LendingOracleAggregator is IOracle {
 
     // Oracle Aggregator
 
+    /// @notice Returns USD price of a token with 18 decimals
+    /// @param _token Address of token
+    /// @return USD Price with 18 decimals
     function getUSDPrice(address _token) external view override returns (uint256) {
         address _feed = feeds[_token];
         FeedType _ft = feedTypes[_token];
@@ -140,14 +147,18 @@ contract LendingOracleAggregator is IOracle {
 
     // State Getters
     
+    /// @return Owner of the contract
     function getOwner() external view returns (address) {
         return owner;
     }
 
+    /// @return Pending owner of the contract before accepting ownership
     function getPendingOwner() external view returns (address) {
         return pendingOwner;
     }
 
+    /// @return Feed, feed type and feed decimals of a token
+    /// @param _token Address of the token
     function getFeed(address _token) external view returns (address, FeedType, uint8) {
         return (feeds[_token], feedTypes[_token], feedDecimals[_token]);
     }

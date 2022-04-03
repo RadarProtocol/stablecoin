@@ -23,6 +23,10 @@ pragma solidity ^0.8.2;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
+/// @title RadarUSD
+/// @author Tudor Gheorghiu (tudor@radar.global)
+/// @notice ERC-20 Stablecoin with
+/// whitelisted minters
 contract RadarUSD is ERC20 {
     address public owner;
     address public pendingOwner;
@@ -69,7 +73,7 @@ contract RadarUSD is ERC20 {
 
     // User functions
 
-    // EIP-2612: permit() https://eips.ethereum.org/EIPS/eip-2612
+    /// @notice EIP-2612: permit() https://eips.ethereum.org/EIPS/eip-2612
     function permit(address _owner, address _spender, uint _value, uint _deadline, uint8 _v, bytes32 _r, bytes32 _s) external {
         require(_deadline >= block.timestamp, "Permit: EXPIRED");
         bytes32 digest = keccak256(
@@ -84,12 +88,19 @@ contract RadarUSD is ERC20 {
         _approve(_owner, _spender, _value);
     }
 
+    /// @notice Burns USDR from the caller's account
+    /// @param _amount Amount of stablecoin to burn
     function burn(uint256 _amount) external {
         _burn(msg.sender, _amount);
     }
 
     // Minter functions
 
+    /// @notice Mints stablecoin to a certain address. Only minters can call this.
+    /// Minters will only be added/removed by the owner, which will be a trusted
+    /// multisig.
+    /// @param _to Address where tokens will be minted
+    /// @param _amount Amount of tokens to mint
     function mint(address _to, uint256 _amount) external onlyMinter {
         _mint(_to, _amount);
     }

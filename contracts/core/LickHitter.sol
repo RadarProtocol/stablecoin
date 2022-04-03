@@ -26,6 +26,12 @@ import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./../interfaces/IStrategy.sol";
 
+/// @title LickHitter
+/// @author Tudor Gheorghiu (tudor@radar.global)
+/// @notice This acts as a yield farming vault
+/// which supports multiple assets and a yield farming
+/// strategy for each asset. It keeps collateral from
+/// `LendingPair`s to earn yield.
 contract LickHitter {
     using SafeERC20 for IERC20;
 
@@ -48,14 +54,6 @@ contract LickHitter {
     address private owner;
     address private pendingOwner;
     address private pokeMe;
-
-    // TODO: Might not need this if tokens go through lending pair first
-    // bytes32 immutable public DOMAIN_SEPARATOR;
-    // mapping(address => uint) public nonces;
-    // // keccak256("depositWithSignature(address _token,address _payer,address _destination,uint256 _amount,uint256 _nonce,uint256 _deadline)")
-    // bytes32 public constant DEPOSIT_TYPEHASH = 0xdc686105f6ae97f38e34e4c4868647b78a380867d04a091aef0ab56753e98e05;
-    // // keccak256("withdrawWithSignature(address _token,address _payer,address _destination,uint256 _shares,uint256 _nonce,uint256 _deadline)")
-    // bytes32 public constant WITHDRAW_TYPEHASH = 0x23f2fbd331ba1090a3899964ac2aaeb307de68f00182befe4f090a39f0d96bd9;
 
 
     event OwnershipTransferred(address indexed oldOwner, address indexed newOwner);
@@ -83,18 +81,6 @@ contract LickHitter {
     constructor(address _pokeMe) {
         owner = msg.sender;
         pokeMe = _pokeMe;
-
-        // TODO: Might not need this if tokens go through lending pair first
-        // Build DOMAIN_SEPARATOR
-        // DOMAIN_SEPARATOR = keccak256(
-        //     abi.encode(
-        //         keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
-        //         keccak256(bytes("LickHitter")),
-        //         keccak256(bytes("1")),
-        //         block.chainid,
-        //         address(this)
-        //     )
-        // );
 
         emit OwnershipTransferred(address(0), msg.sender);
     }
@@ -164,6 +150,10 @@ contract LickHitter {
 
     // User functions
 
+    /// @notice Transfers shares from the caller to another user
+    /// @param _token Which token shares to transfer
+    /// @param _to The address which will receive the shares
+    /// @param _amount Amount of shares
     function transferShares(address _token, address _to, uint256 _amount) external {
         require(balances[_token][msg.sender] >= _amount, "Not enough shares");
 
@@ -181,70 +171,33 @@ contract LickHitter {
     // with the IYV wants, the convertShares
     // function can be used
 
+    /// @notice Deposit assets to the `LickHitter`. Caller must have `_token` allowance
+    /// @param _token Token to deposit
+    /// @param _destination Address which will receive the shares
+    /// @param _amount Amount of `_token` to deposit
+    /// @return The number of shares minted
     function deposit(address _token, address _destination, uint256 _amount) external returns (uint256) {
         return _deposit(_token, msg.sender, _destination, _amount);
     }
 
-    // TODO: Might not need this if tokens go through lending pair first
-    // function depositWithSignature(
-    //     address _token,
-    //     address _payer,
-    //     address _destination,
-    //     uint256 _amount,
-    //     uint256 _deadline,
-    //     uint8 _v,
-    //     bytes32 _r,
-    //     bytes32 _s
-    // ) external {
-    //     require(_deadline >= block.timestamp, "EIP-712: EXPIRED");
-    //     bytes32 digest = keccak256(
-    //         abi.encodePacked(
-    //             "\x19\x01",
-    //             DOMAIN_SEPARATOR,
-    //             keccak256(abi.encode(DEPOSIT_TYPEHASH, _token, _payer, _destination, _amount, nonces[_payer]++, _deadline))
-    //         )
-    //     );
-    //     address recoveredAddress = ecrecover(digest, _v, _r, _s);
-    //     require(recoveredAddress != address(0) && recoveredAddress == _payer, "EIP-712: INVALID_SIGNATURE");
-
-    //     _deposit(_token, _payer, _destination, _amount);
-    // }
-
+    /// @notice Withdraws assets from the `LickHitter`
+    /// @param _token Token to withdraw
+    /// @param _destination Address which will receive the `_token` assets
+    /// @param _shares Amount of shares to withdraw
+    /// @return The amount of `_token` that was withdrawn
     function withdraw(address _token, address _destination, uint256 _shares) external returns (uint256) {
         return _withdraw(_token, msg.sender, _destination, _shares);
     }
 
-    // TODO: Might not need this if tokens go through lending pair first
-    // function withdrawWithSignature(
-    //     address _token,
-    //     address _payer,
-    //     address _destination,
-    //     uint256 _shares,
-    //     uint256 _deadline,
-    //     uint8 _v,
-    //     bytes32 _r,
-    //     bytes32 _s
-    // ) external {
-    //     require(_deadline >= block.timestamp, "EIP-712: EXPIRED");
-    //     bytes32 digest = keccak256(
-    //         abi.encodePacked(
-    //             "\x19\x01",
-    //             DOMAIN_SEPARATOR,
-    //             keccak256(abi.encode(WITHDRAW_TYPEHASH, _token, _payer, _destination, _shares, nonces[_payer]++, _deadline))
-    //         )
-    //     );
-    //     address recoveredAddress = ecrecover(digest, _v, _r, _s);
-    //     require(recoveredAddress != address(0) && recoveredAddress == _payer, "EIP-712: INVALID_SIGNATURE");
-
-    //     _withdraw(_token, _payer, _destination, _shares);
-    // }
-
     // Bot functions (Gelato)
 
+    /// @notice Deposits tokens to a yield strategy and harvests profits
+    /// @dev Only the Gelato Network agent can call this.
+    /// @param _token Which token to execute the strategy for
     function executeStrategy(address _token) external onlyPokeMe {
         address _strategy = strategies[_token];
         require(_strategy != address(0) && supportedTokens[_token], "Strategy doesn't exist");
-        // TODO: Maybe use Gelato's check every block aka revert if harvesting is not needed.
+        // TODO: Maybe use Gelato's check every block aka revert if harvesting is not needed. - https://github.com/RadarProtocol/stablecoin/issues/10
         require(IStrategy(_strategy).shouldHarvest(_token), "Cannot harvest");
 
         // Harvest strategy
@@ -350,38 +303,60 @@ contract LickHitter {
 
     // State Getters
 
+    /// @return The share balance of a certain token of a user
+    /// @param _token Address of the token
+    /// @param _owner Address of the user
     function balanceOf(address _token, address _owner) external view returns (uint256) {
         return balances[_token][_owner];
     }
 
+    /// @return The balance of a certain token of a user (in `_token`, not shares)
+    /// @param _token Address of the token
+    /// @param _owner Address of the user
     function tokenBalanceOf(address _token, address _owner) external view returns (uint256) {
         return _convertShares(_token, balances[_token][_owner], 0);
     }
 
+    /// @return The owner of this contract
     function getOwner() external view returns (address) {
         return owner;
     }
 
+    /// @return The pending owner of this contract before accepting ownership
     function getPendingOwner() external view returns (address) {
         return pendingOwner;
     }
 
+    /// @return The address of the strategy for a specific token
+    /// @param _token Address of the token
     function getTokenStrategy(address _token) external view returns (address) {
         return strategies[_token];
     }
 
+    /// @return Total share supply for a certain token
+    /// @param _token Address of the token
     function getTotalShareSupply(address _token) external view returns (uint256) {
         return totalShareSupply[_token];
     }
 
+    /// @return Total token amount deposited of a certain token
+    /// @param _token Address of the token
     function getTotalInvested(address _token) external view returns (uint256) {
         return _tokenTotalBalance(_token);
     }
 
+    /// @return Returns true/false if a certain token is supported
+    /// @param _token Address of the token
     function getIsSupportedToken(address _token) external view returns (bool) {
         return supportedTokens[_token];
     }
 
+    /// @notice Function to convert shares to how many tokens they are worth and vice-versa.
+    /// @dev _shares and _amount should never both be bigger than `0` or both be equal to `0`
+    /// @return Either shares or actual token amount, depending on how the user called this function
+    /// @param _token Address of the token
+    /// @param _shares Amount of shares to be converted to token amount. Should be `0` if caller wants to convert amount -> shares
+    /// @param _amount Amount of actual token to be converted to shares. Should be `0` if caller wants to convert shares -> amount
     function convertShares(address _token, uint256 _shares, uint256 _amount) external view returns (uint256) {
         return _convertShares(_token, _shares, _amount);
     }

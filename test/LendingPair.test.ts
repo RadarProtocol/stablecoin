@@ -55,7 +55,8 @@ const snapshot = async () => {
     const mockLiqFactory = await ethers.getContractFactory("MockLiquidator");
     const mockLiquidator = await mockLiqFactory.deploy(
         stablecoin.address,
-        lendingPair.address
+        lendingPair.address,
+        yieldVault.address
     );
 
     return {
@@ -193,7 +194,9 @@ describe("Lending Pair", () => {
             mockOracle,
             otherAddress1,
             feeReceiver,
-            mockSwapper
+            mockSwapper,
+            masterContract,
+            deployer
         } = await snapshot();
 
         const ENTRY_FEE = await lendingPair.ENTRY_FEE();
@@ -231,6 +234,16 @@ describe("Lending Pair", () => {
         expect(uF).to.eq(0);
         const atb = await lendingPair.availableToBorrow();
         expect(atb).to.eq(0);
+
+        const lpOwner = await lendingPair.getOwner();
+        const masterOwner = await masterContract.getOwner();
+        expect(lpOwner).to.eq(ethers.constants.AddressZero);
+        expect(masterOwner).to.eq(deployer.address);
+
+        const lpImplementation = await lendingPair.getImplementation();
+        const masterImplementation = await masterContract.getImplementation();
+        expect(lpImplementation).to.eq(masterContract.address);
+        expect(masterImplementation).to.eq(ethers.constants.AddressZero);
     });
     it("Owner - master/proxy", async () => {
         const {
@@ -1511,7 +1524,7 @@ describe("Lending Pair", () => {
         const r1 = await tx1.wait();
         const le1 = r1.events![0];
         const le2 = r1.events![1];
-        const le3 = iface.parseLog(r1.events![5]);
+        const le3 = iface.parseLog(r1.events![8]);
 
         var cr1 = borrowAmount1.add(borrowAmount1Fee);
         cr1 = cr1.add(cr1.mul(500).div(10000));
