@@ -199,14 +199,16 @@ contract LendingPair is ReentrancyGuard {
         oracle = _newOracle;
     }
 
+    /// @dev Be careful when calling this function, since it can "over-burn"
+    /// from the stablecoin reserve and actually burn accumulated fees.
     function burnStablecoin(uint256 _amount) external onlyOwner {
         uint256 _sharesAmount = ILickHitter(yieldVault).convertShares(lendAsset, 0, _amount);
         ILickHitter(yieldVault).withdraw(lendAsset, address(this), _sharesAmount);
         IRadarUSD(lendAsset).burn(_amount);
     }
 
-    // Gives owner power to liquidate everyone (by setting a low MAX_LTV),
-    // but the owner will be a trusted multisig
+    /// @dev Gives owner power to liquidate everyone (by setting a low MAX_LTV),
+    /// but the owner will be a trusted multisig
     function changeMaxLtv(uint256 _newMax) external onlyOwner {
         MAX_LTV = _newMax;
     }
@@ -224,6 +226,9 @@ contract LendingPair is ReentrancyGuard {
 
     // User functions
 
+    /// @notice This will withdraw accumulated fees to the `FEE_RECEIVER` address
+    /// @dev This doesn't require access control since `FEE_RECEIVER` is a set address,
+    /// and there are no "arbitrage" opportunities by withdrawing fees.
     function claimFees() external {
         require(accumulatedFees > 0, "No fees accumulated");
         uint256 _sharesValue = ILickHitter(yieldVault).convertShares(lendAsset, 0, accumulatedFees);
@@ -232,24 +237,51 @@ contract LendingPair is ReentrancyGuard {
         accumulatedFees = 0;
     }
 
+    /// @notice Deposit collateral. Just specify amount. Must have allowance for this contract (collateral)
+    /// @param _amount Collateral amount (not `LickHitter` shares, direct collateral)
     function deposit(uint256 _amount) external {
         _deposit(_amount);
     }
 
+    /// @notice Withdraw collateral.
+    /// @dev Must update exchange rate to calculate if the user can do this
+    /// without being flagged for liquidation, since he is withdrawing collateral.
+    /// @param _amount Amount of collateral to withdraw
+    /// @param _receiver Address where the collateral will be sent to.
     function withdraw(uint256 _amount, address _receiver) updateExchangeRate external {
         _withdraw(_amount, _receiver);
         require(_userSafe(msg.sender), "User not safe");
     }
 
+    /// @notice Borrow assets (USDR)
+    /// @dev Must update exchange rate to calculate if the user can do this
+    /// without being flagged for liquidation, since he is borrowing assets.
+    /// @param _receivingAddress Address where the borrowed assets will be sent to.
+    /// @param _amount Amount (of USDR) to borrow.
     function borrow(address _receivingAddress, uint256 _amount) updateExchangeRate external {
         _borrow(_receivingAddress, _amount);
         require(_userSafe(msg.sender), "User not safe");
     }
 
+    /// @notice Repay a part of or the full loan
+    /// @dev Here we don't need to update the exchange rate, since
+    /// the user is repaying collateral, making them "safer", and since
+    /// we don't check if the user will be flagged for liquidation, we
+    /// don't need to update the exchange rate to save gas costs.
+    /// @param _repaymentReceiver The address to which the repayment is made: a user
+    /// could repay the loan of another user.
+    /// @param _amount Repay amount. Must have allowance for this contract (USDR)
     function repay(address _repaymentReceiver, uint256 _amount) external {
         _repay(_repaymentReceiver, _amount);
     }
 
+    /// @notice Deposit collateral and borrow assets in a single transaction.
+    /// @dev Just calls both the `_deposit` and `_borrow` internal functions. Must update
+    /// exchange rate since a borrow operation takes place here and we must verify the user
+    /// borrows an amount that will not flag him for liquidation.
+    /// @param _depositAmount Amount of collateral to deposit, must have allowance.
+    /// @param _borrowAmount Amount of assets (USDR) to borrow
+    /// @param _receivingAddress Address where borrowed assets will be sent to.
     function depositAndBorrow(
         uint256 _depositAmount,
         uint256 _borrowAmount,
@@ -260,6 +292,14 @@ contract LendingPair is ReentrancyGuard {
         require(_userSafe(msg.sender), "User not safe");
     }
 
+    /// @notice Repay a loan and withdraw collateral in a single transaction
+    /// @dev Just calls both the `_repay` and `_withdraw` internal functions. Must update
+    /// exchange rate since a withdraw operation takes place here and we must verify the user
+    /// will not have too little collateral, a.k.a. being flagged for liquidation.
+    /// @param _repayAmount Amount of assets (USDR) to repay, must have allowance.
+    /// @param _repaymentReceiver What address receives the repayment.
+    /// @param _withdrawAmount How much collateral to withdraw.
+    /// @param _withdrawReceiver The address which will receive the collateral.
     function repayAndWithdraw(
         uint256 _repayAmount,
         address _repaymentReceiver,
@@ -271,6 +311,28 @@ contract LendingPair is ReentrancyGuard {
         require(_userSafe(msg.sender), "User not safe");
     }
 
+    /// @notice Deposits collateral, takes out a loan which is then swapped
+    /// for the collateral and deposited again. This allows users to "borrow" collateral
+    /// and receive a higher yield, while remaining "safe" (not flagged for liquidation)
+    /// This also allows the user to "open a long position on the collateral",
+    /// while also earning more yield than with just a simple deposit.
+    /// @dev We update the exchange rate and check if the user is not flagged for liquidation
+    /// at the end of the function. Since the amount of collateral received from the swap
+    /// should not have to be calculated exactly, the function records its `LickHitter` share
+    /// balances (of collateral) before and after the swap in order to record how much collateral the user gained.
+    /// The initial deposit (`_depositAmount`) is also sent directly to the swapper in order to save gas costs, since
+    /// the swapper will deposit that collateral to the `LickHitter` as well (the swapper
+    /// will deposit all collateral balance to the `LickHitter` after the swap, including the
+    /// initial deposit).
+    /// The loan is sent directly to the swapper and then called to swap it for collateral.
+    /// The swapper is a different contract for each `LendingPair` since collaterals will be
+    /// different assets and there are different ways to swap them (more efficiently).
+    /// @param _depositAmount How much collateral to deposit (initially). Must have allowance.
+    /// @param _borrowAmount How much USDR to borrow that will be swapped to collateral.
+    /// @param _swapData Data containing slippage, swap routes, etc. This is different for each
+    /// swapper contract. It is the caller's responsability to check this `_swapData` will not
+    /// partially fill an order, or leave remaining collateral/USDR assets in the swapper,
+    /// since those assets will be lost.
     function hookedDepositAndBorrow(
         uint256 _depositAmount,
         uint256 _borrowAmount,
