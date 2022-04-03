@@ -23,14 +23,6 @@ pragma solidity ^0.8.2;
 
 interface ILickHitter {
 
-    // TODO: Might not need this if tokens go through lending pair first
-    // bytes32 immutable public DOMAIN_SEPARATOR;
-    // mapping(address => uint) public nonces;
-    // // keccak256("depositWithSignature(address _token,address _payer,address _destination,uint256 _amount,uint256 _nonce,uint256 _deadline)")
-    // bytes32 public constant DEPOSIT_TYPEHASH = 0xdc686105f6ae97f38e34e4c4868647b78a380867d04a091aef0ab56753e98e05;
-    // // keccak256("withdrawWithSignature(address _token,address _payer,address _destination,uint256 _shares,uint256 _nonce,uint256 _deadline)")
-    // bytes32 public constant WITHDRAW_TYPEHASH = 0x23f2fbd331ba1090a3899964ac2aaeb307de68f00182befe4f090a39f0d96bd9;
-
     // Owner Functions
 
     function changePokeMe(address _newPokeMe) external;
@@ -63,57 +55,7 @@ interface ILickHitter {
 
     function deposit(address _token, address _destination, uint256 _amount) external returns (uint256);
 
-    // TODO: Might not need this if tokens go through lending pair first
-    // function depositWithSignature(
-    //     address _token,
-    //     address _payer,
-    //     address _destination,
-    //     uint256 _amount,
-    //     uint256 _deadline,
-    //     uint8 _v,
-    //     bytes32 _r,
-    //     bytes32 _s
-    // ) external {
-    //     require(_deadline >= block.timestamp, "EIP-712: EXPIRED");
-    //     bytes32 digest = keccak256(
-    //         abi.encodePacked(
-    //             "\x19\x01",
-    //             DOMAIN_SEPARATOR,
-    //             keccak256(abi.encode(DEPOSIT_TYPEHASH, _token, _payer, _destination, _amount, nonces[_payer]++, _deadline))
-    //         )
-    //     );
-    //     address recoveredAddress = ecrecover(digest, _v, _r, _s);
-    //     require(recoveredAddress != address(0) && recoveredAddress == _payer, "EIP-712: INVALID_SIGNATURE");
-
-    //     _deposit(_token, _payer, _destination, _amount);
-    // }
-
     function withdraw(address _token, address _destination, uint256 _shares) external returns (uint256);
-
-    // TODO: Might not need this if tokens go through lending pair first
-    // function withdrawWithSignature(
-    //     address _token,
-    //     address _payer,
-    //     address _destination,
-    //     uint256 _shares,
-    //     uint256 _deadline,
-    //     uint8 _v,
-    //     bytes32 _r,
-    //     bytes32 _s
-    // ) external {
-    //     require(_deadline >= block.timestamp, "EIP-712: EXPIRED");
-    //     bytes32 digest = keccak256(
-    //         abi.encodePacked(
-    //             "\x19\x01",
-    //             DOMAIN_SEPARATOR,
-    //             keccak256(abi.encode(WITHDRAW_TYPEHASH, _token, _payer, _destination, _shares, nonces[_payer]++, _deadline))
-    //         )
-    //     );
-    //     address recoveredAddress = ecrecover(digest, _v, _r, _s);
-    //     require(recoveredAddress != address(0) && recoveredAddress == _payer, "EIP-712: INVALID_SIGNATURE");
-
-    //     _withdraw(_token, _payer, _destination, _shares);
-    // }
 
     // Bot functions (Gelato)
 
