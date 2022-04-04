@@ -24,10 +24,11 @@ pragma solidity ^0.8.2;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./../interfaces/ISwapper.sol";
+import "./../interfaces/ILiquidator.sol";
 import "./../interfaces/curve/ICurvePool.sol";
 import "./../interfaces/ILickHitter.sol";
 
-contract UST3PoolSwapper is ISwapper {
+contract UST3PoolSwapper is ISwapper, ILiquidator {
     using SafeERC20 for IERC20;
 
     uint256 constant MAX_UINT = 2**256 - 1;
@@ -107,15 +108,39 @@ contract UST3PoolSwapper is ISwapper {
     ) external override checkAllowance {
         (uint256 _min3PoolReceive, uint256 _minUSDRReceive) = abi.decode(data, (uint256, uint256));
 
-        // Swap UST to 3Pool
-        uint256 _ustBal = IERC20(UST).balanceOf(address(this));
-        uint256 _received3Pool = ICurvePool(CURVE_UST_3POOL).exchange(0, 1, _ustBal, _min3PoolReceive, address(this));
-
-        // Swap 3Pool to USDR
-        ICurvePool(CURVE_USDR_3POOL).exchange(1, 0, _received3Pool, _minUSDRReceive, address(this));
+        _swapUST2USDR(_min3PoolReceive, _minUSDRReceive);
 
         // Deposit to LickHitter
         uint256 _usdrBal = IERC20(USDR).balanceOf(address(this));
         ILickHitter(yieldVault).deposit(USDR, msg.sender, _usdrBal);
+    }
+
+    // Swap UST to USDR
+    function liquidateHook(
+        address,
+        address _initiator,
+        uint256 _repayAmount,
+        uint256,
+        bytes calldata data
+    ) external override checkAllowance {
+
+        (uint256 _min3PoolReceive, uint256 _minUSDRReceive) = abi.decode(data, (uint256, uint256));
+
+        _swapUST2USDR(_min3PoolReceive, _minUSDRReceive);
+
+        ILickHitter(yieldVault).deposit(USDR, msg.sender, _repayAmount);
+
+        // Profit goes to initiator
+        uint256 _usdrBal = IERC20(USDR).balanceOf(address(this));
+        IERC20(USDR).transfer(_initiator, _usdrBal);
+    }
+
+    function _swapUST2USDR(uint256 _min3Pool, uint256 _minUSDR) internal {
+        // Swap UST to 3Pool
+        uint256 _ustBal = IERC20(UST).balanceOf(address(this));
+        uint256 _received3Pool = ICurvePool(CURVE_UST_3POOL).exchange(0, 1, _ustBal, _min3Pool, address(this));
+
+        // Swap 3Pool to USDR
+        ICurvePool(CURVE_USDR_3POOL).exchange(1, 0, _received3Pool, _minUSDR, address(this));
     }
 }

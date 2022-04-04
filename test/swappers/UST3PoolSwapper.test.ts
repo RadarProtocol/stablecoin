@@ -46,7 +46,7 @@ const snapshot = async () => {
     );
     
     // Add liquidity to the USDR3Pool
-    const LIQ_AMT = ethers.utils.parseEther('100000000');
+    const LIQ_AMT = ethers.utils.parseEther('1000000000');
 
     // Get USDR
     await USDR.mint(deployer.address, LIQ_AMT)
@@ -82,6 +82,16 @@ const snapshot = async () => {
         swapper,
         yieldVault
     }
+}
+
+const checkSwapperEmptyBalance = async (
+    swapper: UST3PoolSwapper,
+    USDR: any,
+    UST: any
+) => {
+    const b1 = await USDR.balanceOf(swapper.address);
+    const b2 = await UST.balanceOf(swapper.address);
+    expect(b1).to.eq(b2).to.eq(0);
 }
 
 describe('UST3PoolSwapper', () => {
@@ -211,6 +221,8 @@ describe('UST3PoolSwapper', () => {
         const mySharesBal = await yieldVault.balanceOf(UST.address, deployer.address);
         const myBal = await yieldVault.convertShares(UST.address, mySharesBal, 0);
         expect(myBal).to.be.gte(myMinCollateral);
+
+        await checkSwapperEmptyBalance(swapper, USDR, UST);
     });
     it("repayHook", async () => {
         const {
@@ -255,5 +267,55 @@ describe('UST3PoolSwapper', () => {
         const myBal = await yieldVault.convertShares(USDR.address, myShares, 0);
 
         expect(myBal).to.be.gte(minRepayment);
+        await checkSwapperEmptyBalance(swapper, USDR, UST);
+    });
+    it("liquidateHook", async () => {
+        const {
+            swapper,
+            USDR,
+            UST,
+            yieldVault,
+            deployer,
+            otherAddress1
+        } = await snapshot();
+
+        const SLIPPAGE_TOLERANCE = 180;
+        const collateralLiquidated = BigNumber.from(945 * 10**6); // 94.5 UST
+        const repayRequired = ethers.utils.parseEther('904.5');
+        const min3Pool = collateralLiquidated.sub(collateralLiquidated.mul(SLIPPAGE_TOLERANCE).div(10000)).mul(ethers.utils.parseEther('1')).div(10**6);
+
+        const abiCoder = new ethers.utils.AbiCoder();
+        const swapData = abiCoder.encode(
+            [
+                "uint256",
+                "uint256"
+            ], [
+                min3Pool,
+                repayRequired
+            ]
+        );
+
+        // Remove collateral
+        await setUSTTokenBalance(deployer, collateralLiquidated);
+        await UST.connect(deployer).transfer(swapper.address, collateralLiquidated);
+
+        // Liquidate
+        await swapper.liquidateHook(
+            UST.address,
+            otherAddress1.address,
+            repayRequired,
+            0,
+            swapData
+        );
+
+        const yvsBal = await yieldVault.balanceOf(USDR.address, deployer.address);
+        const yvBal = await yieldVault.convertShares(USDR.address, yvsBal, 0);
+        expect(yvBal).to.be.gte(repayRequired);
+        
+        const userReward = await USDR.balanceOf(otherAddress1.address);
+        console.log(`Liquidate user reward: ${userReward}`);
+        expect(userReward).to.be.gte(ethers.utils.parseEther("1"));
+
+        await checkSwapperEmptyBalance(swapper, USDR, UST);
     });
 });
