@@ -26,6 +26,7 @@ interface ILiquidator {
         address _token,
         address _initiator,
         uint256 _repayAmount,
-        uint256 _collateralLiquidated
+        uint256 _collateralLiquidated,
+        bytes calldata data
     ) external;
 }

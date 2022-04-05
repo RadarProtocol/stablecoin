@@ -1484,7 +1484,8 @@ describe("Lending Pair", () => {
         await expect(lendingPair.liquidate(
             [investor1.address, investor2.address],
             [totalAdded, totalAdded],
-            mockLiquidator.address
+            mockLiquidator.address,
+            "0x00"
         )).to.be.revertedWith(
             "Liquidate none"
         );
@@ -1505,7 +1506,8 @@ describe("Lending Pair", () => {
         await expect(lendingPair.liquidate(
             [investor1.address, investor2.address],
             [totalAdded, borrowAmount2.div(2)],
-            mockLiquidator.address
+            mockLiquidator.address,
+            "0x00"
         )).to.be.revertedWith(
             "ERC20: transfer amount exceeds balance"
         );
@@ -1519,7 +1521,8 @@ describe("Lending Pair", () => {
         const tx1 = await lendingPair.liquidate(
             [investor1.address, investor2.address],
             [totalAdded, borrowAmount2.div(2)],
-            mockLiquidator.address
+            mockLiquidator.address,
+            "0x00"
         );
         const r1 = await tx1.wait();
         const le1 = r1.events![0];
@@ -1579,11 +1582,12 @@ describe("Lending Pair", () => {
         await lendingPair.liquidate(
             [investor2.address],
             [totalAdded],
-            mockLiquidator.address
+            mockLiquidator.address,
+            "0x00"
         );
 
         // Cannot liquidate with invalid data
-        await expect(lendingPair.liquidate([investor1.address, investor2.address], [totalAdded], mockLiquidator.address)).to.be.revertedWith("Invalid data");
+        await expect(lendingPair.liquidate([investor1.address, investor2.address], [totalAdded], mockLiquidator.address, "0x00")).to.be.revertedWith("Invalid data");
 
         await checkUserIsSafe(investor1, lendingPair, true);
         await checkUserIsSafe(investor2, lendingPair, true);
@@ -2206,7 +2210,8 @@ describe("Lending Pair", () => {
         await lendingPair.liquidate(
             [investor1.address, investor2.address],
             [totalAdded, totalAdded],
-            mockLiquidator.address
+            mockLiquidator.address,
+            "0x00"
         );
 
         var trp = borrowAmount1.add(borrowAmount1Fee);

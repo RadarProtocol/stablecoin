@@ -459,10 +459,12 @@ contract LendingPair is ReentrancyGuard {
     /// whole loan.
     /// @param _liquidator Address of the liquidator contract which will manage the
     /// swapping and repayment. Must implement the `ILiquidator` interface.
+    /// @param _swapData Liquidator swap data including slippage, routes etc.
     function liquidate(
         address[] calldata _users,
         uint256[] calldata _repayAmounts,
-        address _liquidator
+        address _liquidator,
+        bytes calldata _swapData
     ) external updateExchangeRate nonReentrant {
         require(_users.length == _repayAmounts.length, "Invalid data");
 
@@ -524,7 +526,8 @@ contract LendingPair is ReentrancyGuard {
             collateral,
             msg.sender,
             _totalRepayRequired,
-            _totalCollateralLiquidated
+            _totalCollateralLiquidated,
+            _swapData
         );
         uint256 _after = ILickHitter(yieldVault).balanceOf(lendAsset, address(this));
         uint256 _repaidAmount = ILickHitter(yieldVault).convertShares(lendAsset, (_after - _before), 0);

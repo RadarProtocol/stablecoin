@@ -23,6 +23,7 @@ pragma solidity ^0.8.2;
 
 import "./../interfaces/IOracle.sol";
 import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
+import "./../interfaces/yearn/IYearnVaultV2.sol";
 
 /// @title LendingOracleAggregator
 /// @author Tudor Gheorghiu (tudor@radar.global)
@@ -32,7 +33,8 @@ contract LendingOracleAggregator is IOracle {
 
     enum FeedType {
         ChainlinkDirect,
-        ChainlinkETH
+        ChainlinkETH,
+        ChainlinkYearnUnderlying
     }
 
     mapping(address => address) private feeds;
@@ -115,11 +117,7 @@ contract LendingOracleAggregator is IOracle {
             require(price > 0, "Oracle failure");
 
             // Convert to 18 decimals
-            if (feedDecimals[_token] == 18) {
-                return uint256(price);
-            } else {
-                return uint256(price) * (10**(18 - feedDecimals[_token]));
-            }
+            return uint256(price) * (10**(18 - feedDecimals[_token]));
         } else if (_ft == FeedType.ChainlinkETH) {
             (
                 /*uint80 roundID*/,
@@ -140,6 +138,22 @@ contract LendingOracleAggregator is IOracle {
             require(_ethValue > 0 && _ethPrice > 0, "Oracle failure");
 
             return uint256(_ethPrice * _ethValue) / (10**8);
+        } else if(_ft == FeedType.ChainlinkYearnUnderlying) {
+            (
+                /*uint80 roundID*/,
+                int _underlyingValue,
+                /*uint startedAt*/,
+                /*uint timeStamp*/,
+                /*uint80 answeredInRound*/
+            ) = AggregatorV3Interface(_feed).latestRoundData();
+
+            uint256 _sharePrice = IYearnVaultV2(_token).pricePerShare();
+            uint8 _assetDecimals = IYearnVaultV2(_token).decimals();
+
+            uint256 _tokenPrice = (uint256(_underlyingValue) * _sharePrice) / (10**_assetDecimals);
+
+            // Convert to 18 decimals
+            return _tokenPrice * (10**(18 - feedDecimals[_token]));
         } else {
             revert("Dangerous Call");
         }

@@ -28,7 +28,8 @@ contract MockLiquidator is ILiquidator {
         address _token,
         address _initiator,
         uint256 _repayAmount,
-        uint256 _collateralLiquidated
+        uint256 _collateralLiquidated,
+        bytes calldata
     ) external override {
         require(msg.sender == lp);
         // Just receive collateral and deposit for repay amount
