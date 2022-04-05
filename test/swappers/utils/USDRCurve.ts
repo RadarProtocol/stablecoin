@@ -28,7 +28,7 @@ export const deployUSDR3PoolCurveFactory = async (
         "USDR 3Pool",
         "USDR3Pool",
         [USDR.address, POOL3.address, ethers.constants.AddressZero, ethers.constants.AddressZero],
-        100,
+        2000,
         fee
     );
     const rc = await USDRPoolTx.wait();

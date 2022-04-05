@@ -1,5 +1,10 @@
 import { expect } from "chai";
+import { BigNumber } from "ethers";
 import { ethers } from "hardhat";
+
+const YearnSharePriceInterface = new ethers.utils.Interface([
+    "function pricePerShare() external view returns (uint256)"
+]);
 
 const snapshot = async () => {
     const [deployer, otherAddress1] = await ethers.getSigners();
@@ -243,5 +248,98 @@ describe('LendingOracleAggregator', () => {
         // Max 1% difference
         expect(ftmOraclePrice).to.be.closeTo(approxFtmPrice, ftmOraclePrice.div(100));
         expect(bnbOraclePrice).to.be.closeTo(approxBnbPrice, bnbOraclePrice.div(100));
+    });
+    it("ChainlinkYearnUnderlying: yvWETH V2", async () => {
+        const {
+            oracle,
+            deployer
+        } = await snapshot();
+
+        const yvWETHV2 = "0xa258C4606Ca8206D8aA700cE2143D7db854D168c";
+        const chainlinkETHOracle = "0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419";
+        const feedDecimals = 8;
+
+        await oracle.editFeed(
+            yvWETHV2,
+            chainlinkETHOracle,
+            2,
+            feedDecimals
+        );
+
+        // CoinGecko price 29th of March, 2022, 9 PM UTC
+        const approxWethPrice = ethers.utils.parseEther("2956.98");
+        const yVault = new ethers.Contract(
+            yvWETHV2,
+            YearnSharePriceInterface,
+            deployer
+        );
+        const sharePrice = await yVault.pricePerShare();
+        const approxTokenPrice = approxWethPrice.mul(sharePrice).div(ethers.utils.parseEther('1'));
+
+        const oraclePrice = await oracle.getUSDPrice(yvWETHV2);
+
+        expect(oraclePrice).to.be.closeTo(approxTokenPrice, oraclePrice.div(100));
+    });
+    it("ChainlinkYearnUnderlying: yvUSDT V2", async () => {
+        const {
+            oracle,
+            deployer
+        } = await snapshot();
+
+        const yvUSDT = "0x7Da96a3891Add058AdA2E826306D812C638D87a7";
+        const chainlinkUSDTOracle = "0x3E7d1eAB13ad0104d2750B8863b489D65364e32D";
+        const feedDecimals = 8;
+
+        await oracle.editFeed(
+            yvUSDT,
+            chainlinkUSDTOracle,
+            2,
+            feedDecimals
+        );
+
+        // CoinGecko price 29th of March, 2022, 9 PM UTC
+        const approxUsdtPrice = ethers.utils.parseEther("1");
+        const yVault = new ethers.Contract(
+            yvUSDT,
+            YearnSharePriceInterface,
+            deployer
+        );
+        const sharePrice = await yVault.pricePerShare();
+        const approxTokenPrice = approxUsdtPrice.mul(sharePrice).div(BigNumber.from(10**6));
+
+        const oraclePrice = await oracle.getUSDPrice(yvUSDT);
+
+        expect(oraclePrice).to.be.closeTo(approxTokenPrice, oraclePrice.div(100));
+    });
+    it("ChainlinkYearnUnderlying: yvDAI V2", async () => {
+        const {
+            oracle,
+            deployer
+        } = await snapshot();
+
+        const yvDAI = "0xdA816459F1AB5631232FE5e97a05BBBb94970c95";
+        const chainlinkDAIOracle = "0xAed0c38402a5d19df6E4c03F4E2DceD6e29c1ee9";
+        const feedDecimals = 8;
+
+        await oracle.editFeed(
+            yvDAI,
+            chainlinkDAIOracle,
+            2,
+            feedDecimals
+        );
+
+        // CoinGecko price 29th of March, 2022, 9 PM UTC
+        const approxWethPrice = ethers.utils.parseEther("1");
+        const yVault = new ethers.Contract(
+            yvDAI,
+            YearnSharePriceInterface,
+            deployer
+        );
+        const sharePrice = await yVault.pricePerShare();
+        const approxTokenPrice = approxWethPrice.mul(sharePrice).div(ethers.utils.parseEther('1'));
+
+        const oraclePrice = await oracle.getUSDPrice(yvDAI);
+
+        expect(oraclePrice).to.be.closeTo(approxTokenPrice, oraclePrice.div(100));
     });
 });
