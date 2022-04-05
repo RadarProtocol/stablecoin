@@ -123,7 +123,6 @@ contract UST3PoolSwapper is ISwapper, ILiquidator {
         uint256,
         bytes calldata data
     ) external override checkAllowance {
-
         (uint256 _min3PoolReceive, uint256 _minUSDRReceive) = abi.decode(data, (uint256, uint256));
 
         _swapUST2USDR(_min3PoolReceive, _minUSDRReceive);
