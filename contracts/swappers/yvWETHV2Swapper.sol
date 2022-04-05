@@ -30,7 +30,7 @@ import "./../interfaces/curve/ICurvePool.sol";
 import "./../interfaces/yearn/IYearnVaultV2.sol";
 import "./../interfaces/ILickHitter.sol";
 
-contract yvWETHV2Swapper is ISwapper, ILiquidator {
+contract YVWETHV2Swapper is ISwapper, ILiquidator {
     using SafeERC20 for IERC20;
 
     uint256 constant MAX_UINT = 2**256 - 1;
@@ -81,6 +81,7 @@ contract yvWETHV2Swapper is ISwapper, ILiquidator {
         IERC20(USDR).approve(CURVE_USDR_3POOL, MAX_UINT);
         IERC20(USDC).approve(UNISWAPV3_ROUTER, MAX_UINT);
         IERC20(WETH).approve(yvWETHV2, MAX_UINT);
+        IERC20(yvWETHV2).approve(yieldVault, MAX_UINT);
 
         IERC20(WETH).approve(UNISWAPV3_ROUTER, MAX_UINT);
         IERC20(USDC).approve(CURVE_USDR_3POOL, MAX_UINT);
@@ -109,7 +110,7 @@ contract yvWETHV2Swapper is ISwapper, ILiquidator {
             recipient: address(this),
             deadline: block.timestamp + 1,
             amountIn: _receivedUSDC,
-            amountOutMinimum: _minUSDCReceive
+            amountOutMinimum: _minWETHReceive
         });
         uint256 _receivedWETH = ISwapRouter(UNISWAPV3_ROUTER).exactInput(_uniswapParams);
 

@@ -24,11 +24,12 @@ export const deployUSDR3PoolCurveFactory = async (
     );
 
 
-    const USDRPoolTx = await curveFactory.deploy_plain_pool(
+    const USDRPoolTx = await curveFactory.deploy_metapool(
+        "0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7", // 3Pool
         "USDR 3Pool",
         "USDR3Pool",
-        [USDR.address, POOL3.address, ethers.constants.AddressZero, ethers.constants.AddressZero],
-        2000,
+        USDR.address,
+        500,
         fee
     );
     const rc = await USDRPoolTx.wait();
@@ -76,9 +77,23 @@ export const setUSTTokenBalance = async (
     await manipulateLocalERC20Balance(
         receiver,
         "0xa693B19d2931d498c5B318dF961919BB4aee87a5",
-        5, // Slot for 3Pool token
+        5, // Slot for UST token
         receiver.address,
         amount,
         false
+    );
+}
+
+export const setyvWETHV2TokenBalance = async (
+    receiver: SignerWithAddress,
+    amount: BigNumberish
+) => {
+    await manipulateLocalERC20Balance(
+        receiver,
+        "0xa258C4606Ca8206D8aA700cE2143D7db854D168c",
+        3, // Slot for yvWETH token
+        receiver.address,
+        amount,
+        true
     );
 }
