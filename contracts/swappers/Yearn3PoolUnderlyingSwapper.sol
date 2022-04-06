@@ -29,33 +29,44 @@ import "./../interfaces/curve/ICurvePool.sol";
 import "./../interfaces/yearn/IYearnVaultV2.sol";
 import "./../interfaces/ILickHitter.sol";
 
-contract YVDAIV2Swapper is ISwapper, ILiquidator {
+contract Yearn3PoolUnderlyingSwapper is ISwapper, ILiquidator {
     using SafeERC20 for IERC20;
 
     uint256 constant MAX_UINT = 2**256 - 1;
 
     address private immutable USDR;
+
     address private immutable DAI;
-    address private immutable yvDAIV2;
+    address private immutable USDC;
+    address private immutable USDT;
 
     address private immutable CURVE_USDR_3POOL;
 
     address private immutable yieldVault;
 
+    mapping(address => int128) private CURVE_TOKEN_IDS;
+
     constructor(
         address _usdr,
         address _dai,
-        address _yvdai,
+        address _usdc,
+        address _usdt,
         address _curveUsdr,
         address _yv
     ) {
         USDR = _usdr;
+
         DAI = _dai;
-        yvDAIV2 = _yvdai;
+        USDC = _usdc;
+        USDT = _usdt;
 
         CURVE_USDR_3POOL = _curveUsdr;
 
         yieldVault = _yv;
+
+        CURVE_TOKEN_IDS[_dai] = 1;
+        CURVE_TOKEN_IDS[_usdc] = 2;
+        CURVE_TOKEN_IDS[_usdt] = 3;
     }
 
     modifier checkAllowance {
@@ -72,49 +83,60 @@ contract YVDAIV2Swapper is ISwapper, ILiquidator {
 
     function _approveAll() internal {
         IERC20(USDR).approve(CURVE_USDR_3POOL, MAX_UINT);
-        IERC20(DAI).approve(yvDAIV2, MAX_UINT);
-        IERC20(yvDAIV2).approve(yieldVault, MAX_UINT);
 
         IERC20(DAI).approve(CURVE_USDR_3POOL, MAX_UINT);
+        IERC20(USDC).approve(CURVE_USDR_3POOL, MAX_UINT);
+        IERC20(USDT).approve(CURVE_USDR_3POOL, MAX_UINT);
         IERC20(USDR).approve(yieldVault, MAX_UINT);
     }
 
-    // Swap USDR to yvWETHV2
+    // Swap USDR to yv token
     function depositHook(
-        address,
+        address _collateral,
         bytes calldata data
     ) external override checkAllowance {
-        (uint256 _minDAIReceive) = abi.decode(data, (uint256));
+        (uint256 _minUnderlyingReceive) = abi.decode(data, (uint256));
 
-        // Swap USDR to DAI
+        address _underlying = IYearnVaultV2(_collateral).token();
+        int128 _tokenID = CURVE_TOKEN_IDS[_underlying];
+
+        require(_tokenID > 0, "Invalid Asset");
+
+        // Swap USDR to underlying
         uint256 _usdrBal = IERC20(USDR).balanceOf(address(this));
-        uint256 _receivedDAI = ICurvePool(CURVE_USDR_3POOL).exchange_underlying(0, 1, _usdrBal, _minDAIReceive, address(this));
+        uint256 _receivedUnderlying = ICurvePool(CURVE_USDR_3POOL).exchange_underlying(0, _tokenID, _usdrBal, _minUnderlyingReceive, address(this));
 
-        // Swap DAI to yvDAIV2
-        IYearnVaultV2(yvDAIV2).deposit(_receivedDAI);
+        // Swap underlying to yvTOKEN
+
+        // Save on SSTORE opcode, so approve is not called everytime
+        uint256 _allowance = IERC20(_underlying).allowance(address(this), _collateral);
+        if (_allowance < _receivedUnderlying) {
+            IERC20(_underlying).approve(_collateral, MAX_UINT);
+        }
+        IYearnVaultV2(_collateral).deposit(_receivedUnderlying);
 
         // Deposit to LickHitter
-        uint256 _myBal = IERC20(yvDAIV2).balanceOf(address(this));
-        ILickHitter(yieldVault).deposit(yvDAIV2, msg.sender, _myBal);
+        uint256 _myBal = IERC20(_collateral).balanceOf(address(this));
+        ILickHitter(yieldVault).deposit(_collateral, msg.sender, _myBal);
     }
 
-    // Swap yvWETHV2 to USDR
+    // Swap yv token to USDR
     function repayHook(
-        address,
+        address _collateral,
         bytes calldata data
     ) external override checkAllowance {
         (uint256 _minUSDRReceive) = abi.decode(data, (uint256));
 
-        _swapyvDAIV22USDR(_minUSDRReceive);
+        _swapyv2USDR(_collateral, _minUSDRReceive);
 
         // Deposit to LickHitter
         uint256 _usdrBal = IERC20(USDR).balanceOf(address(this));
         ILickHitter(yieldVault).deposit(USDR, msg.sender, _usdrBal);
     }
 
-    // Swap yvWETHV2 to USDR
+    // Swap yv token to USDR
     function liquidateHook(
-        address,
+        address _collateral,
         address _initiator,
         uint256 _repayAmount,
         uint256,
@@ -122,7 +144,7 @@ contract YVDAIV2Swapper is ISwapper, ILiquidator {
     ) external override checkAllowance {
         (uint256 _minUSDRReceive) = abi.decode(data, (uint256));
 
-        _swapyvDAIV22USDR(_minUSDRReceive);
+        _swapyv2USDR(_collateral, _minUSDRReceive);
 
         ILickHitter(yieldVault).deposit(USDR, msg.sender, _repayAmount);
 
@@ -131,11 +153,16 @@ contract YVDAIV2Swapper is ISwapper, ILiquidator {
         IERC20(USDR).transfer(_initiator, _usdrBal);
     }
 
-    function _swapyvDAIV22USDR(uint256 _minUSDR) internal {
-        // Swap yvDAIV2 to DAI
-        uint256 _receivedDAI = IYearnVaultV2(yvDAIV2).withdraw();
+    function _swapyv2USDR(address _collateral, uint256 _minUSDR) internal {
+        // Swap yv token to underlying
+        uint256 _receivedUnderlying = IYearnVaultV2(_collateral).withdraw();
 
-        // Swap DAI to USDR
-        ICurvePool(CURVE_USDR_3POOL).exchange_underlying(1, 0, _receivedDAI, _minUSDR, address(this));
+        address _underlying = IYearnVaultV2(_collateral).token();
+        int128 _tokenID = CURVE_TOKEN_IDS[_underlying];
+
+        require(_tokenID > 0, "Invalid Asset");
+
+        // Swap underlying to USDR
+        ICurvePool(CURVE_USDR_3POOL).exchange_underlying(_tokenID, 0, _receivedUnderlying, _minUSDR, address(this));
     }
 }
