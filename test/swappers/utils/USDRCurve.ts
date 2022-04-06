@@ -97,3 +97,45 @@ export const setyvWETHV2TokenBalance = async (
         true
     );
 }
+
+export const setyvDAIV2TokenBalance = async (
+    receiver: SignerWithAddress,
+    amount: BigNumberish
+) => {
+    await manipulateLocalERC20Balance(
+        receiver,
+        "0xdA816459F1AB5631232FE5e97a05BBBb94970c95",
+        3, // Slot for yvWETH token
+        receiver.address,
+        amount,
+        true
+    );
+}
+
+export const setyvUSDCV2TokenBalance = async (
+    receiver: SignerWithAddress,
+    amount: BigNumberish
+) => {
+    await manipulateLocalERC20Balance(
+        receiver,
+        "0xa354F35829Ae975e850e23e9615b11Da1B3dC4DE",
+        3, // Slot for yvWETH token
+        receiver.address,
+        amount,
+        true
+    );
+}
+
+export const setyvUSDTV2TokenBalance = async (
+    receiver: SignerWithAddress,
+    amount: BigNumberish
+) => {
+    await manipulateLocalERC20Balance(
+        receiver,
+        "0x7Da96a3891Add058AdA2E826306D812C638D87a7",
+        4, // Slot for yvUSDT token
+        receiver.address,
+        amount,
+        true
+    );
+}

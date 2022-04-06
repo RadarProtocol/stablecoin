@@ -2,7 +2,7 @@ import { expect } from "chai";
 import { BigNumber, BigNumberish } from "ethers";
 import { ethers } from "hardhat";
 import { LickHitter, RadarUSD, YVWETHV2Swapper } from "../../typechain";
-import { deployUSDR3PoolCurveFactory, set3PoolTokenBalance ,setyvWETHV2TokenBalance } from "./utils/USDRCurve";
+import { deployUSDR3PoolCurveFactory, set3PoolTokenBalance , setyvWETHV2TokenBalance } from "./utils/USDRCurve";
 
 const YearnSharePriceInterface = new ethers.utils.Interface([
     "function pricePerShare() external view returns (uint256)"
