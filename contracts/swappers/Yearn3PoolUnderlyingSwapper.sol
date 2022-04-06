@@ -82,12 +82,12 @@ contract Yearn3PoolUnderlyingSwapper is ISwapper, ILiquidator {
     }
 
     function _approveAll() internal {
-        IERC20(USDR).approve(CURVE_USDR_3POOL, MAX_UINT);
+        IERC20(USDR).safeApprove(CURVE_USDR_3POOL, MAX_UINT);
 
-        IERC20(DAI).approve(CURVE_USDR_3POOL, MAX_UINT);
-        IERC20(USDC).approve(CURVE_USDR_3POOL, MAX_UINT);
-        IERC20(USDT).approve(CURVE_USDR_3POOL, MAX_UINT);
-        IERC20(USDR).approve(yieldVault, MAX_UINT);
+        IERC20(DAI).safeApprove(CURVE_USDR_3POOL, MAX_UINT);
+        IERC20(USDC).safeApprove(CURVE_USDR_3POOL, MAX_UINT);
+        IERC20(USDT).safeApprove(CURVE_USDR_3POOL, MAX_UINT);
+        IERC20(USDR).safeApprove(yieldVault, MAX_UINT);
     }
 
     // Swap USDR to yv token
@@ -111,12 +111,16 @@ contract Yearn3PoolUnderlyingSwapper is ISwapper, ILiquidator {
         // Save on SSTORE opcode, so approve is not called everytime
         uint256 _allowance = IERC20(_underlying).allowance(address(this), _collateral);
         if (_allowance < _receivedUnderlying) {
-            IERC20(_underlying).approve(_collateral, MAX_UINT);
+            IERC20(_underlying).safeApprove(_collateral, MAX_UINT);
         }
         IYearnVaultV2(_collateral).deposit(_receivedUnderlying);
 
         // Deposit to LickHitter
         uint256 _myBal = IERC20(_collateral).balanceOf(address(this));
+        uint256 _allowance2 = IERC20(_collateral).allowance(address(this), yieldVault);
+        if (_allowance2 < _myBal) {
+            IERC20(_collateral).safeApprove(yieldVault, MAX_UINT);
+        }
         ILickHitter(yieldVault).deposit(_collateral, msg.sender, _myBal);
     }
 

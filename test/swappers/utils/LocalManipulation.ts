@@ -1,5 +1,6 @@
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { ethers } from "hardhat";
+import { expect } from "chai";
 
 const toBytes32 = (bn: any) => {
     return ethers.utils.hexlify(ethers.utils.zeroPad(bn.toHexString(), 32));
@@ -37,4 +38,16 @@ export const manipulateLocalERC20Balance = async (
         toBytes32(manipulated_balance).toString(),
         provider
     );
+
+    const ercInterface = new ethers.utils.Interface([
+        "function balanceOf(address) external view returns (uint256)"
+    ]);
+    const c = new ethers.Contract(
+        erc_address,
+        ercInterface,
+        deployer
+    );
+
+    const b = await c.balanceOf(user);
+    expect(b).to.eq(manipulated_balance);
 }
