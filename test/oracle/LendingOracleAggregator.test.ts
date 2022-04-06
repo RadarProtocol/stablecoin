@@ -6,6 +6,10 @@ const YearnSharePriceInterface = new ethers.utils.Interface([
     "function pricePerShare() external view returns (uint256)"
 ]);
 
+const CurveVirtualPriceInterface = new ethers.utils.Interface([
+    "function get_virtual_price() external view returns (uint256)"
+]);
+
 const snapshot = async () => {
     const [deployer, otherAddress1] = await ethers.getSigners();
 
@@ -16,22 +20,32 @@ const snapshot = async () => {
             token: "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2", // WETH
             feedType: 0,
             feed: "0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419",
-            decimals: 8
+            decimals: 8,
+            metadata: "0x00"
         }, {
             token: "0x4e15361fd6b4bb609fa63c81a2be19d873717870", // FTM
             feedType: 1,
             feed: "0x2DE7E4a9488488e0058B95854CC2f7955B35dC9b",
-            decimals: 18
+            decimals: 18,
+            metadata: "0x00"
         }, {
             token: "0xB8c77482e45F1F44dE1745F52C74426C631bDD52", // BNB
             feedType: 1,
             feed: "0xc546d2d06144F9DD42815b8bA46Ee7B8FcAFa4a2",
-            decimals: 18
+            decimals: 18,
+            metadata: "0x00"
         }, {
             token: "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599", // WBTC
             feedType: 0,
             feed: "0xF4030086522a5bEEa4988F8cA5B36dbC97BeE88c",
-            decimals: 8
+            decimals: 8,
+            metadata: "0x00"
+        }, {
+            token: "0x6b175474e89094c44da98b954eedeac495271d0f", // DAI
+            feedType: 0,
+            feed: "0xAed0c38402a5d19df6E4c03F4E2DceD6e29c1ee9",
+            decimals: 8,
+            metadata: "0x00"
         }
     ];
     const chainlinkETHFeed = "0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419";
@@ -40,13 +54,15 @@ const snapshot = async () => {
     const feedTypes = oracleFeeds.map(x => x.feedType);
     const feeds = oracleFeeds.map(x => x.feed);
     const decimals = oracleFeeds.map(x => x.decimals);
+    const metadata = oracleFeeds.map(x => x.metadata);
 
     const oracle = await oracleFactory.deploy(
         tokens,
         feedTypes,
         feeds,
         decimals,
-        chainlinkETHFeed
+        metadata,
+        chainlinkETHFeed,
     );
 
     return {
@@ -96,7 +112,7 @@ describe('LendingOracleAggregator', () => {
         await expect(oracle.claimOwnership()).to.be.revertedWith(
             "Unauthorized"
         );
-        await expect(oracle.connect(otherAddress1).editFeed(ethers.constants.AddressZero, ethers.constants.AddressZero, 0, 0)).to.be.revertedWith(
+        await expect(oracle.connect(otherAddress1).editFeed(ethers.constants.AddressZero, ethers.constants.AddressZero, 0, 0, "0x00")).to.be.revertedWith(
             "Unauthorized"
         );
     });
@@ -155,7 +171,8 @@ describe('LendingOracleAggregator', () => {
             newFeed.token,
             newFeed.feed,
             newFeed.feedType,
-            newFeed.decimals
+            newFeed.decimals,
+            "0x00"
         );
         const rc1 = await tx1.wait();
         const e1 = rc1.events![0];
@@ -193,7 +210,8 @@ describe('LendingOracleAggregator', () => {
             modifyTo.token,
             modifyTo.feed,
             modifyTo.feedType,
-            modifyTo.decimals
+            modifyTo.decimals,
+            "0x00"
         );
         const rc2 = await tx2.wait();
         const e2 = rc2.events![0];
@@ -263,7 +281,8 @@ describe('LendingOracleAggregator', () => {
             yvWETHV2,
             chainlinkETHOracle,
             2,
-            feedDecimals
+            feedDecimals,
+            "0x00"
         );
 
         // CoinGecko price 29th of March, 2022, 9 PM UTC
@@ -294,7 +313,8 @@ describe('LendingOracleAggregator', () => {
             yvUSDT,
             chainlinkUSDTOracle,
             2,
-            feedDecimals
+            feedDecimals,
+            "0x00"
         );
 
         // CoinGecko price 29th of March, 2022, 9 PM UTC
@@ -325,7 +345,8 @@ describe('LendingOracleAggregator', () => {
             yvDAI,
             chainlinkDAIOracle,
             2,
-            feedDecimals
+            feedDecimals,
+            "0x00"
         );
 
         // CoinGecko price 29th of March, 2022, 9 PM UTC
@@ -341,5 +362,186 @@ describe('LendingOracleAggregator', () => {
         const oraclePrice = await oracle.getUSDPrice(yvDAI);
 
         expect(oraclePrice).to.be.closeTo(approxTokenPrice, oraclePrice.div(100));
+    });
+    it("CurveLPVirtualPricePeggedAssets: 3Pool", async () => {
+        const {
+            oracle,
+            deployer
+        } = await snapshot();
+
+        const token = "0x6c3F90f043a72FA612cbac8115EE7e52BDe6E490"; // 3Pool token
+        const pool = "0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7"; // 3Pool pool
+        const underlying = "0x6b175474e89094c44da98b954eedeac495271d0f"; // DAI
+        const underlyingPrice = ethers.utils.parseEther('1'); // DAI
+
+        const abiCoder = new ethers.utils.AbiCoder;
+        const metadata = abiCoder.encode(
+            ["address"],
+            [underlying]
+        );
+
+        await oracle.editFeed(
+            token,
+            pool,
+            3,
+            18,
+            metadata
+        );
+
+        const oraclePrice = await oracle.getUSDPrice(token);
+        const cp = new ethers.Contract(
+            pool,
+            CurveVirtualPriceInterface,
+            deployer
+        );
+        const vp = await cp.get_virtual_price();
+        const actualPrice = underlyingPrice.mul(vp).div(ethers.utils.parseEther('1'));
+
+        expect(oraclePrice).to.be.closeTo(actualPrice, oraclePrice.div(100));
+    });
+    it("CurveLPVirtualPricePeggedAssets: Wormhole UST", async () => {
+        const {
+            oracle,
+            deployer
+        } = await snapshot();
+
+        const token = "0xCEAF7747579696A2F0bb206a14210e3c9e6fB269"; // UST Wormhole Pool
+        const pool = "0xCEAF7747579696A2F0bb206a14210e3c9e6fB269"; // UST Wormhole Pool
+        const underlying = "0x6b175474e89094c44da98b954eedeac495271d0f"; // DAI
+        const underlyingPrice = ethers.utils.parseEther('1'); // DAI
+
+        const abiCoder = new ethers.utils.AbiCoder;
+        const metadata = abiCoder.encode(
+            ["address"],
+            [underlying]
+        );
+
+        await oracle.editFeed(
+            token,
+            pool,
+            3,
+            18,
+            metadata
+        );
+
+        const oraclePrice = await oracle.getUSDPrice(token);
+        const cp = new ethers.Contract(
+            pool,
+            CurveVirtualPriceInterface,
+            deployer
+        );
+        const vp = await cp.get_virtual_price();
+        const actualPrice = underlyingPrice.mul(vp).div(ethers.utils.parseEther('1'));
+
+        expect(oraclePrice).to.be.closeTo(actualPrice, oraclePrice.div(100));
+    });
+    it("CurveLPVirtualPricePeggedAssets: stETH", async () => {
+        const {
+            oracle,
+            deployer
+        } = await snapshot();
+
+        const token = "0xd632f22692FaC7611d2AA1C0D552930D43CAEd3B"; // UST Wormhole Pool
+        const pool = "0xd632f22692FaC7611d2AA1C0D552930D43CAEd3B"; // UST Wormhole Pool
+        const underlying = "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"; // WETH
+        // CoinGecko price 29th of March, 2022, 9 PM UTC
+        const underlyingPrice = ethers.utils.parseEther('2956.98'); // WETH
+
+        const abiCoder = new ethers.utils.AbiCoder;
+        const metadata = abiCoder.encode(
+            ["address"],
+            [underlying]
+        );
+
+        await oracle.editFeed(
+            token,
+            pool,
+            3,
+            18,
+            metadata
+        );
+
+        const oraclePrice = await oracle.getUSDPrice(token);
+        const cp = new ethers.Contract(
+            pool,
+            CurveVirtualPriceInterface,
+            deployer
+        );
+        const vp = await cp.get_virtual_price();
+        const actualPrice = underlyingPrice.mul(vp).div(ethers.utils.parseEther('1'));
+
+        expect(oraclePrice).to.be.closeTo(actualPrice, oraclePrice.div(100));
+    });
+    it("CurveLPVirtualPricePeggedAssets: FRAX", async () => {
+        const {
+            oracle,
+            deployer
+        } = await snapshot();
+
+        const token = "0xd632f22692FaC7611d2AA1C0D552930D43CAEd3B"; // UST Wormhole Pool
+        const pool = "0xd632f22692FaC7611d2AA1C0D552930D43CAEd3B"; // UST Wormhole Pool
+        const underlying = "0x6b175474e89094c44da98b954eedeac495271d0f"; // DAI
+        const underlyingPrice = ethers.utils.parseEther('1'); // DAI
+
+        const abiCoder = new ethers.utils.AbiCoder;
+        const metadata = abiCoder.encode(
+            ["address"],
+            [underlying]
+        );
+
+        await oracle.editFeed(
+            token,
+            pool,
+            3,
+            18,
+            metadata
+        );
+
+        const oraclePrice = await oracle.getUSDPrice(token);
+        const cp = new ethers.Contract(
+            pool,
+            CurveVirtualPriceInterface,
+            deployer
+        );
+        const vp = await cp.get_virtual_price();
+        const actualPrice = underlyingPrice.mul(vp).div(ethers.utils.parseEther('1'));
+
+        expect(oraclePrice).to.be.closeTo(actualPrice, oraclePrice.div(100));
+    });
+    it("CurveLPVirtualPricePeggedAssets: IB", async () => {
+        const {
+            oracle,
+            deployer
+        } = await snapshot();
+
+        const token = "0x5282a4eF67D9C33135340fB3289cc1711c13638C"; // UST Wormhole Pool
+        const pool = "0x2dded6Da1BF5DBdF597C45fcFaa3194e53EcfeAF"; // UST Wormhole Pool
+        const underlying = "0x6b175474e89094c44da98b954eedeac495271d0f"; // DAI
+        const underlyingPrice = ethers.utils.parseEther('1'); // DAI
+
+        const abiCoder = new ethers.utils.AbiCoder;
+        const metadata = abiCoder.encode(
+            ["address"],
+            [underlying]
+        );
+
+        await oracle.editFeed(
+            token,
+            pool,
+            3,
+            18,
+            metadata
+        );
+
+        const oraclePrice = await oracle.getUSDPrice(token);
+        const cp = new ethers.Contract(
+            pool,
+            CurveVirtualPriceInterface,
+            deployer
+        );
+        const vp = await cp.get_virtual_price();
+        const actualPrice = underlyingPrice.mul(vp).div(ethers.utils.parseEther('1'));
+
+        expect(oraclePrice).to.be.closeTo(actualPrice, oraclePrice.div(100));
     });
 });

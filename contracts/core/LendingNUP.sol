@@ -22,7 +22,7 @@
 pragma solidity ^0.8.2;
 
 /// @title A Non-Upgradable Proxy Contract for LendingPairs
-/// @author Tudor Gheorghiu (tudor@radar.global)
+/// @author Radar Global (tudor@radar.global)
 /// @dev Simple EIP-1967 Proxy Implementation, there will never be
 /// an upgrade function on the target contract
 contract LendingNUP {

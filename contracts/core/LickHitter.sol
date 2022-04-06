@@ -27,7 +27,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./../interfaces/IStrategy.sol";
 
 /// @title LickHitter
-/// @author Tudor Gheorghiu (tudor@radar.global)
+/// @author Radar Global (tudor@radar.global)
 /// @notice This acts as a yield farming vault
 /// which supports multiple assets and a yield farming
 /// strategy for each asset. It keeps collateral from
