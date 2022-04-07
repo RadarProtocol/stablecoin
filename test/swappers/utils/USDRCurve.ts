@@ -167,3 +167,17 @@ export const setcrvFRAXTokenBalance = async (
         true
     );
 }
+
+export const setcrvIBTokenBalance = async (
+    receiver: SignerWithAddress,
+    amount: BigNumberish
+) => {
+    await manipulateLocalERC20Balance(
+        receiver,
+        "0x5282a4eF67D9C33135340fB3289cc1711c13638C",
+        2, // Slot for crvIB token
+        receiver.address,
+        amount,
+        true
+    );
+}
