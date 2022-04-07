@@ -139,3 +139,45 @@ export const setyvUSDTV2TokenBalance = async (
         true
     );
 }
+
+export const setcrvstETHTokenBalance = async (
+    receiver: SignerWithAddress,
+    amount: BigNumberish
+) => {
+    await manipulateLocalERC20Balance(
+        receiver,
+        "0x06325440D014e39736583c165C2963BA99fAf14E",
+        2, // Slot for crvstETH token
+        receiver.address,
+        amount,
+        true
+    );
+}
+
+export const setcrvFRAXTokenBalance = async (
+    receiver: SignerWithAddress,
+    amount: BigNumberish
+) => {
+    await manipulateLocalERC20Balance(
+        receiver,
+        "0xd632f22692FaC7611d2AA1C0D552930D43CAEd3B",
+        15, // Slot for crvFRAX token
+        receiver.address,
+        amount,
+        true
+    );
+}
+
+export const setcrvIBTokenBalance = async (
+    receiver: SignerWithAddress,
+    amount: BigNumberish
+) => {
+    await manipulateLocalERC20Balance(
+        receiver,
+        "0x5282a4eF67D9C33135340fB3289cc1711c13638C",
+        2, // Slot for crvIB token
+        receiver.address,
+        amount,
+        true
+    );
+}

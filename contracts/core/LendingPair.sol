@@ -33,7 +33,7 @@ import "./../interfaces/ILiquidator.sol";
 import "./../interfaces/ISwapper.sol";
 
 /// @title LendingPair
-/// @author Tudor Gheorghiu (tudor@radar.global)
+/// @author Radar Global (tudor@radar.global)
 /// @notice Single collateral asset lending pair, used for
 /// USDR (stablecoin) lending
 contract LendingPair is ReentrancyGuard {

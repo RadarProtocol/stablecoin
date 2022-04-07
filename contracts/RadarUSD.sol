@@ -24,7 +24,7 @@ pragma solidity ^0.8.2;
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 /// @title RadarUSD
-/// @author Tudor Gheorghiu (tudor@radar.global)
+/// @author Radar Global (tudor@radar.global)
 /// @notice ERC-20 Stablecoin with
 /// whitelisted minters
 contract RadarUSD is ERC20 {

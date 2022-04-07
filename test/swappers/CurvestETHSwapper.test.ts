@@ -1,12 +1,13 @@
+import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { expect } from "chai";
-import { BigNumber } from "ethers";
+import { BigNumber, BigNumberish } from "ethers";
 import { ethers } from "hardhat";
-import { YVWETHV2Swapper } from "../../typechain";
+import { CurvestETHSwapper } from "../../typechain";
 import { allowanceCheck } from "./utils/SwapperTestUtils";
-import { deployUSDR3PoolCurveFactory, set3PoolTokenBalance , setyvWETHV2TokenBalance } from "./utils/USDRCurve";
+import { deployUSDR3PoolCurveFactory, set3PoolTokenBalance , setcrvstETHTokenBalance } from "./utils/USDRCurve";
 
-const YearnSharePriceInterface = new ethers.utils.Interface([
-    "function pricePerShare() external view returns (uint256)"
+const CurveVirtualPriceInterface = new ethers.utils.Interface([
+    "function get_virtual_price() external view returns (uint256)"
 ]);
 
 const snapshot = async () => {
@@ -16,8 +17,9 @@ const snapshot = async () => {
     const stableFactory = await ethers.getContractFactory("RadarUSD");
     const USDR = await stableFactory.deploy();
 
-    const yvWETHAddress = "0xa258C4606Ca8206D8aA700cE2143D7db854D168c";
-    const yvWETH = stableFactory.attach(yvWETHAddress);
+    const crvstETHAddress = "0x06325440D014e39736583c165C2963BA99fAf14E";
+    const crvstETHPool = "0xDC24316b9AE028F1497c275EB9192a3Ea0f67022";
+    const crvstETH = stableFactory.attach(crvstETHAddress);
 
     const WETHAddress = "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2";
     const WETH = stableFactory.attach(WETHAddress);
@@ -36,7 +38,7 @@ const snapshot = async () => {
     const UNISWAP_V3_ROUTER = "0xE592427A0AEce92De3Edee1F18E0157C05861564";
 
     const BUFFER = ethers.utils.parseEther('10');
-    await yieldVault.addSupportedToken(yvWETH.address, BUFFER);
+    await yieldVault.addSupportedToken(crvstETH.address, BUFFER);
     await yieldVault.addSupportedToken(USDR.address, BUFFER);
 
     const USDRPool = await deployUSDR3PoolCurveFactory(
@@ -46,13 +48,14 @@ const snapshot = async () => {
         10000000 // 0.1%
     );
 
-    const swapperFactory = await ethers.getContractFactory("YVWETHV2Swapper");
+    const swapperFactory = await ethers.getContractFactory("CurvestETHSwapper");
     const swapper = await swapperFactory.deploy(
-        USDR.address,
         WETHAddress,
+        crvstETHAddress,
+        USDR.address,
         USDCAddress,
-        yvWETHAddress,
         USDRPool.address,
+        crvstETHPool,
         UNISWAP_V3_ROUTER,
         yieldVault.address
     );
@@ -91,7 +94,8 @@ const snapshot = async () => {
         USDC,
         POOL3,
         USDRPool,
-        yvWETH,
+        crvstETH,
+        crvstETHPool,
         UNISWAP_V3_ROUTER,
         swapper,
         yieldVault
@@ -99,31 +103,43 @@ const snapshot = async () => {
 }
 
 const checkSwapperEmptyBalance = async (
-    swapper: YVWETHV2Swapper,
+    swapper: CurvestETHSwapper,
+    deployer: SignerWithAddress,
     USDR: any,
-    yvWETH: any
+    crvstETH: any,
+    USDC: any,
+    WETH: any
 ) => {
     const b1 = await USDR.balanceOf(swapper.address);
-    const b2 = await yvWETH.balanceOf(swapper.address);
-    expect(b1).to.eq(b2).to.eq(0);
+    const b2 = await crvstETH.balanceOf(swapper.address);
+    const b3 = await USDC.balanceOf(swapper.address);
+    const b4 = await WETH.balanceOf(swapper.address);
+    const b5 = await deployer.provider!.getBalance(swapper.address);
+    expect(b1)
+    .to.eq(b2)
+    .to.eq(b3)
+    .to.eq(b4)
+    .to.eq(b5)
+    .to.eq(0);
 }
 
-describe('YVWETHV2Swapper', () => {
+describe('CurvestETHSwapper', () => {
     it("approve all", async () => {
         const {
             USDR,
             USDC,
             UNISWAP_V3_ROUTER,
             WETH,
-            yvWETH,
+            crvstETH,
+            crvstETHPool,
             USDRPool,
             swapper,
             yieldVault
         } = await snapshot();
 
         await allowanceCheck(
-            [USDR, USDC, WETH, WETH, USDC, USDR],
-            [USDRPool.address, UNISWAP_V3_ROUTER, yvWETH.address, UNISWAP_V3_ROUTER, USDRPool.address, yieldVault.address],
+            [USDR, USDC, crvstETH, crvstETH, WETH, USDC, USDR],
+            [USDRPool.address, UNISWAP_V3_ROUTER, yieldVault.address, crvstETHPool, UNISWAP_V3_ROUTER, USDRPool.address, yieldVault.address],
             swapper,
             0
         );
@@ -131,8 +147,8 @@ describe('YVWETHV2Swapper', () => {
         await swapper.reApprove();
 
         await allowanceCheck(
-            [USDR, USDC, WETH, WETH, USDC, USDR],
-            [USDRPool.address, UNISWAP_V3_ROUTER, yvWETH.address, UNISWAP_V3_ROUTER, USDRPool.address, yieldVault.address],
+            [USDR, USDC, crvstETH, crvstETH, WETH, USDC, USDR],
+            [USDRPool.address, UNISWAP_V3_ROUTER, yieldVault.address, crvstETHPool, UNISWAP_V3_ROUTER, USDRPool.address, yieldVault.address],
             swapper,
             ethers.constants.MaxUint256
         );
@@ -141,7 +157,7 @@ describe('YVWETHV2Swapper', () => {
         const {
             swapper,
             USDR,
-            yvWETH
+            crvstETH
         } = await snapshot();
 
         // Swap should not be possible if checkAllowance doesn't work
@@ -152,21 +168,26 @@ describe('YVWETHV2Swapper', () => {
         const swapData = abiCoder.encode(
             [
                 "uint256",
+                "uint256",
                 "uint256"
             ], [
+                0,
                 0,
                 0
             ]
         );
 
-        await swapper.depositHook(yvWETH.address, swapData);
+        await swapper.depositHook(crvstETH.address, swapData);
 
     });
     it("depositHook", async () => {
         const {
             swapper,
             USDR,
-            yvWETH,
+            USDC,
+            WETH,
+            crvstETH,
+            crvstETHPool,
             yieldVault,
             deployer
         } = await snapshot();
@@ -179,62 +200,69 @@ describe('YVWETHV2Swapper', () => {
         const borrow = ethers.utils.parseEther('10000');
         const minUSDC = borrow.sub(borrow.mul(SLIPPAGE_TOLERANCE).div(10000)).div(10**12);
         const minWETH = minUSDC.sub(minUSDC.mul(SLIPPAGE_TOLERANCE).div(10000)).mul(approxWethPrice).div(10**6);
-        const yvC = new ethers.Contract(
-            yvWETH.address,
-            YearnSharePriceInterface,
+        const crvP = new ethers.Contract(
+            crvstETHPool,
+            CurveVirtualPriceInterface,
             deployer
         );
-        const sp = await yvC.pricePerShare();
-        const myMinCollateral = minWETH.mul(ethers.utils.parseEther('1')).div(sp).add(directDeposit);
+        const vp = await crvP.get_virtual_price();
+        const mincrvstETH = minWETH.mul(ethers.utils.parseEther('1')).div(vp);
+        const myMinCollateral = mincrvstETH.add(directDeposit);
 
         const abiCoder = new ethers.utils.AbiCoder();
         const swapData = abiCoder.encode(
             [
                 "uint256",
+                "uint256",
                 "uint256"
             ], [
                 minUSDC,
-                minWETH
+                minWETH,
+                mincrvstETH
             ]
         );
 
-        // Direct deposit yvWETHV2
-        await setyvWETHV2TokenBalance(deployer, BigNumber.from(directDeposit));
-        await yvWETH.connect(deployer).transfer(swapper.address, directDeposit);
+        // Direct deposit crvstETH
+        await setcrvstETHTokenBalance(deployer, BigNumber.from(directDeposit));
+        await crvstETH.connect(deployer).transfer(swapper.address, directDeposit);
 
         // Borrow USDT
         await USDR.mint(swapper.address, borrow);
 
         // Do swap
-        await swapper.depositHook(yvWETH.address, swapData);
+        await swapper.depositHook(crvstETH.address, swapData);
 
-        const mySharesBal = await yieldVault.balanceOf(yvWETH.address, deployer.address);
-        const myBal = await yieldVault.convertShares(yvWETH.address, mySharesBal, 0);
+        const mySharesBal = await yieldVault.balanceOf(crvstETH.address, deployer.address);
+        const myBal = await yieldVault.convertShares(crvstETH.address, mySharesBal, 0);
         expect(myBal).to.be.gte(myMinCollateral);
 
-        await checkSwapperEmptyBalance(swapper, USDR, yvWETH);
+        await checkSwapperEmptyBalance(swapper, deployer, USDR, crvstETH, USDC, WETH);
     });
     it("repayHook", async () => {
         const {
             swapper,
             USDR,
-            yvWETH,
+            USDC,
+            WETH,
+            crvstETH,
+            crvstETHPool,
             yieldVault,
             deployer
         } = await snapshot();
 
         const SLIPPAGE_TOLERANCE = 200;
-        const yvC = new ethers.Contract(
-            yvWETH.address,
-            YearnSharePriceInterface,
+        const crvP = new ethers.Contract(
+            crvstETHPool,
+            CurveVirtualPriceInterface,
             deployer
         );
         // CoinGecko price 29th of March, 2022, 9 PM UTC
         const approxWethPrice = ethers.utils.parseEther("2956.98");
-        const sp = await yvC.pricePerShare();
-        const directRepay = ethers.utils.parseEther('100'); // repay 1 USDR
-        const collatRemoved = ethers.utils.parseEther('1'); // 1 yvWETH UST
-        const minUSDC = collatRemoved.sub(collatRemoved.mul(SLIPPAGE_TOLERANCE).div(10000)).mul(sp).div(ethers.utils.parseEther('1')).mul(approxWethPrice).div(ethers.utils.parseEther('1')).div(10**12);
+        const vp = await crvP.get_virtual_price();
+        const directRepay = ethers.utils.parseEther('100'); // repay 100 USDR
+        const collatRemoved = ethers.utils.parseEther('1'); // 1 crvstETH UST
+        const minETH = collatRemoved.sub(collatRemoved.mul(SLIPPAGE_TOLERANCE).div(10000)).mul(vp).div(ethers.utils.parseEther('1'))
+        const minUSDC = minETH.sub(minETH.mul(SLIPPAGE_TOLERANCE).div(10000)).mul(approxWethPrice).div(ethers.utils.parseEther('1')).div(10**12);
         const minUSDR = minUSDC.sub(minUSDC.mul(SLIPPAGE_TOLERANCE).div(10000));
         const minRepayment = directRepay.add(minUSDR);
 
@@ -242,8 +270,10 @@ describe('YVWETHV2Swapper', () => {
         const swapData = abiCoder.encode(
             [
                 "uint256",
+                "uint256",
                 "uint256"
             ], [
+                minETH,
                 minUSDC,
                 minUSDR
             ]
@@ -253,11 +283,11 @@ describe('YVWETHV2Swapper', () => {
         await USDR.mint(swapper.address, directRepay);
 
         // Remove collateral
-        await setyvWETHV2TokenBalance(deployer, collatRemoved);
-        await yvWETH.connect(deployer).transfer(swapper.address, collatRemoved);
+        await setcrvstETHTokenBalance(deployer, collatRemoved);
+        await crvstETH.connect(deployer).transfer(swapper.address, collatRemoved);
 
         // Do swap
-        await swapper.repayHook(yvWETH.address, swapData);
+        await swapper.repayHook(crvstETH.address, swapData);
 
         // Check balance
 
@@ -265,49 +295,55 @@ describe('YVWETHV2Swapper', () => {
         const myBal = await yieldVault.convertShares(USDR.address, myShares, 0);
 
         expect(myBal).to.be.gte(minRepayment);
-        await checkSwapperEmptyBalance(swapper, USDR, yvWETH);
+        await checkSwapperEmptyBalance(swapper, deployer, USDR, crvstETH, USDC, WETH);
     });
     it("liquidateHook", async () => {
         const {
             swapper,
             USDR,
-            yvWETH,
+            crvstETH,
+            crvstETHPool,
+            USDC,
+            WETH,
             yieldVault,
             deployer,
             otherAddress1
         } = await snapshot();
 
         const SLIPPAGE_TOLERANCE = 180;
-        const collateralLiquidated = ethers.utils.parseEther('5') // 5 yvWETH
+        const collateralLiquidated = ethers.utils.parseEther('5') // 5 crvstETH
         const repayRequired = ethers.utils.parseEther('12000');
-        const yvC = new ethers.Contract(
-            yvWETH.address,
-            YearnSharePriceInterface,
+        const crvP = new ethers.Contract(
+            crvstETHPool,
+            CurveVirtualPriceInterface,
             deployer
         );
         // CoinGecko price 29th of March, 2022, 9 PM UTC
         const approxWethPrice = ethers.utils.parseEther("2956.98");
-        const sp = await yvC.pricePerShare();
-        const minUSDC = collateralLiquidated.sub(collateralLiquidated.mul(SLIPPAGE_TOLERANCE).div(10000)).mul(sp).div(ethers.utils.parseEther('1')).mul(approxWethPrice).div(ethers.utils.parseEther('1')).div(10**12);
+        const vp = await crvP.get_virtual_price();
+        const minETH = collateralLiquidated.sub(collateralLiquidated.mul(SLIPPAGE_TOLERANCE).div(10000)).mul(vp).div(ethers.utils.parseEther('1'))
+        const minUSDC = minETH.sub(minETH.mul(SLIPPAGE_TOLERANCE).div(10000)).mul(approxWethPrice).div(ethers.utils.parseEther('1')).div(10**12);
 
         const abiCoder = new ethers.utils.AbiCoder();
         const swapData = abiCoder.encode(
             [
                 "uint256",
+                "uint256",
                 "uint256"
             ], [
+                minETH,
                 minUSDC,
                 repayRequired
             ]
         );
 
         // Remove collateral
-        await setyvWETHV2TokenBalance(deployer, collateralLiquidated);
-        await yvWETH.connect(deployer).transfer(swapper.address, collateralLiquidated);
+        await setcrvstETHTokenBalance(deployer, collateralLiquidated);
+        await crvstETH.connect(deployer).transfer(swapper.address, collateralLiquidated);
 
         // Liquidate
         await swapper.liquidateHook(
-            yvWETH.address,
+            crvstETH.address,
             otherAddress1.address,
             repayRequired,
             0,
@@ -322,6 +358,6 @@ describe('YVWETHV2Swapper', () => {
         console.log(`Liquidate user reward: ${userReward}`);
         expect(userReward).to.be.gte(ethers.utils.parseEther("1"));
 
-        await checkSwapperEmptyBalance(swapper, USDR, yvWETH);
+        await checkSwapperEmptyBalance(swapper, deployer, USDR, crvstETH, USDC, WETH);
     });
 });

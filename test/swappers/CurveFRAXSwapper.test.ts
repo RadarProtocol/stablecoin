@@ -1,24 +1,23 @@
 import { expect } from "chai";
-import { BigNumber, BigNumberish } from "ethers";
+import { BigNumber } from "ethers";
 import { ethers } from "hardhat";
-import { LickHitter, RadarUSD, UST3PoolSwapper } from "../../typechain";
+import { CurveFRAXSwapper } from "../../typechain";
 import { allowanceCheck } from "./utils/SwapperTestUtils";
-import { deployUSDR3PoolCurveFactory, set3PoolTokenBalance, setUSTTokenBalance } from "./utils/USDRCurve";
+import { deployUSDR3PoolCurveFactory, set3PoolTokenBalance, setcrvFRAXTokenBalance } from "./utils/USDRCurve";
 
 const snapshot = async () => {
     const [deployer, otherAddress1, otherAddress2] = await ethers.getSigners();
-    
 
     const stableFactory = await ethers.getContractFactory("RadarUSD");
     const USDR = await stableFactory.deploy();
 
-    const USTAddress = "0xa693B19d2931d498c5B318dF961919BB4aee87a5";
-    const UST = stableFactory.attach(USTAddress);
+    const crvFRAXAddress = "0xd632f22692FaC7611d2AA1C0D552930D43CAEd3B";
+    const crvFRAX = stableFactory.attach(crvFRAXAddress);
 
     const Pool3Address = "0x6c3F90f043a72FA612cbac8115EE7e52BDe6E490";
     const POOL3 = stableFactory.attach(Pool3Address);
 
-    const CURVE_3POOL_UST_ADDRESS = "0xCEAF7747579696A2F0bb206a14210e3c9e6fB269";
+    const CURVE_3POOL_FRAX_ADDRESS = "0xd632f22692FaC7611d2AA1C0D552930D43CAEd3B";
 
     const yvFactory = await ethers.getContractFactory("LickHitter");
     const yieldVault = await yvFactory.deploy(
@@ -26,7 +25,7 @@ const snapshot = async () => {
     );
 
     const BUFFER = ethers.utils.parseEther('10');
-    await yieldVault.addSupportedToken(UST.address, BUFFER);
+    await yieldVault.addSupportedToken(crvFRAX.address, BUFFER);
     await yieldVault.addSupportedToken(USDR.address, BUFFER);
 
     const USDRPool = await deployUSDR3PoolCurveFactory(
@@ -36,13 +35,13 @@ const snapshot = async () => {
         10000000 // 0.1%
     );
 
-    const swapperFactory = await ethers.getContractFactory("UST3PoolSwapper");
+    const swapperFactory = await ethers.getContractFactory("CurveFRAXSwapper");
     const swapper = await swapperFactory.deploy(
-        USTAddress,
+        crvFRAXAddress,
         USDR.address,
         Pool3Address,
         USDRPool.address,
-        CURVE_3POOL_UST_ADDRESS,
+        CURVE_3POOL_FRAX_ADDRESS,
         yieldVault.address
     );
     
@@ -76,40 +75,42 @@ const snapshot = async () => {
         otherAddress1,
         otherAddress2,
         USDR,
-        UST,
+        crvFRAX,
         POOL3,
         USDRPool,
-        CURVE_3POOL_UST_ADDRESS,
+        CURVE_3POOL_FRAX_ADDRESS,
         swapper,
         yieldVault
     }
 }
 
 const checkSwapperEmptyBalance = async (
-    swapper: UST3PoolSwapper,
+    swapper: CurveFRAXSwapper,
     USDR: any,
-    UST: any
+    crvFRAX: any,
+    pool3: any
 ) => {
     const b1 = await USDR.balanceOf(swapper.address);
-    const b2 = await UST.balanceOf(swapper.address);
-    expect(b1).to.eq(b2).to.eq(0);
+    const b2 = await crvFRAX.balanceOf(swapper.address);
+    const b3 = await pool3.balanceOf(swapper.address);
+    expect(b1).to.eq(b2).to.eq(b3).to.eq(0);
 }
 
-describe('UST3PoolSwapper', () => {
+describe('CurveFRAXSwapper', () => {
     it("approve all", async () => {
         const {
             USDR,
-            UST,
+            crvFRAX,
             POOL3,
             USDRPool,
-            CURVE_3POOL_UST_ADDRESS,
+            CURVE_3POOL_FRAX_ADDRESS,
             swapper,
             yieldVault
         } = await snapshot();
 
         await allowanceCheck(
-            [USDR, POOL3, UST, UST, POOL3, USDR],
-            [USDRPool.address, CURVE_3POOL_UST_ADDRESS, yieldVault.address, CURVE_3POOL_UST_ADDRESS, USDRPool.address, yieldVault.address],
+            [USDR, POOL3, crvFRAX, POOL3, USDR],
+            [USDRPool.address, CURVE_3POOL_FRAX_ADDRESS, yieldVault.address, USDRPool.address, yieldVault.address],
             swapper,
             0
         );
@@ -117,8 +118,8 @@ describe('UST3PoolSwapper', () => {
         await swapper.reApprove();
 
         await allowanceCheck(
-            [USDR, POOL3, UST, UST, POOL3, USDR],
-            [USDRPool.address, CURVE_3POOL_UST_ADDRESS, yieldVault.address, CURVE_3POOL_UST_ADDRESS, USDRPool.address, yieldVault.address],
+            [USDR, POOL3, crvFRAX, POOL3, USDR],
+            [USDRPool.address, CURVE_3POOL_FRAX_ADDRESS, yieldVault.address, USDRPool.address, yieldVault.address],
             swapper,
             ethers.constants.MaxUint256
         );
@@ -127,7 +128,7 @@ describe('UST3PoolSwapper', () => {
         const {
             swapper,
             USDR,
-            UST
+            crvFRAX
         } = await snapshot();
 
         // Swap should not be possible if checkAllowance doesn't work
@@ -145,24 +146,25 @@ describe('UST3PoolSwapper', () => {
             ]
         );
 
-        await swapper.depositHook(UST.address, swapData);
+        await swapper.depositHook(crvFRAX.address, swapData);
 
     });
     it("depositHook", async () => {
         const {
             swapper,
             USDR,
-            UST,
+            crvFRAX,
             yieldVault,
-            deployer
+            deployer,
+            POOL3
         } = await snapshot();
 
         const SLIPPAGE_TOLERANCE = 300;
-        const directDeposit = 100 * 10**6; // 100 UST
-        const borrow = ethers.utils.parseEther('10');
+        const directDeposit = ethers.utils.parseEther('10')
+        const borrow = ethers.utils.parseEther('100');
         const min3Pool = borrow.sub(borrow.mul(SLIPPAGE_TOLERANCE).div(10000));
-        const minUST = min3Pool.sub(min3Pool.mul(SLIPPAGE_TOLERANCE).div(10000)).mul(10**6).div(ethers.utils.parseEther('1'));
-        const myMinCollateral = minUST.add(directDeposit);
+        const mincrvFRAX = min3Pool.sub(min3Pool.mul(SLIPPAGE_TOLERANCE).div(10000));
+        const myMinCollateral = mincrvFRAX.add(directDeposit);
 
         const abiCoder = new ethers.utils.AbiCoder();
         const swapData = abiCoder.encode(
@@ -171,39 +173,40 @@ describe('UST3PoolSwapper', () => {
                 "uint256"
             ], [
                 min3Pool,
-                minUST
+                mincrvFRAX
             ]
         );
 
         // Direct deposit UST
-        await setUSTTokenBalance(deployer, BigNumber.from(directDeposit));
-        await UST.connect(deployer).transfer(swapper.address, directDeposit);
+        await setcrvFRAXTokenBalance(deployer, BigNumber.from(directDeposit));
+        await crvFRAX.connect(deployer).transfer(swapper.address, directDeposit);
 
         // Borrow USDT
         await USDR.mint(swapper.address, borrow);
 
         // Do swap
-        await swapper.depositHook(UST.address, swapData);
+        await swapper.depositHook(crvFRAX.address, swapData);
 
-        const mySharesBal = await yieldVault.balanceOf(UST.address, deployer.address);
-        const myBal = await yieldVault.convertShares(UST.address, mySharesBal, 0);
+        const mySharesBal = await yieldVault.balanceOf(crvFRAX.address, deployer.address);
+        const myBal = await yieldVault.convertShares(crvFRAX.address, mySharesBal, 0);
         expect(myBal).to.be.gte(myMinCollateral);
 
-        await checkSwapperEmptyBalance(swapper, USDR, UST);
+        await checkSwapperEmptyBalance(swapper, USDR, crvFRAX, POOL3);
     });
     it("repayHook", async () => {
         const {
             swapper,
             USDR,
-            UST,
+            crvFRAX,
+            POOL3,
             yieldVault,
             deployer
         } = await snapshot();
 
         const SLIPPAGE_TOLERANCE = 200;
-        const directRepay = ethers.utils.parseEther('1'); // repay 1 USDR
-        const collatRemoved = BigNumber.from(100 * 10**6); // 100 UST
-        const min3Pool = collatRemoved.sub(collatRemoved.mul(SLIPPAGE_TOLERANCE).div(10000)).mul(ethers.utils.parseEther('1')).div(10**6);
+        const directRepay = ethers.utils.parseEther('10'); // repay 1 USDR
+        const collatRemoved = ethers.utils.parseEther('100')
+        const min3Pool = collatRemoved.sub(collatRemoved.mul(SLIPPAGE_TOLERANCE).div(10000));
         const minUSDR = min3Pool.sub(min3Pool.mul(SLIPPAGE_TOLERANCE).div(10000));
         const minRepayment = directRepay.add(minUSDR);
 
@@ -222,11 +225,11 @@ describe('UST3PoolSwapper', () => {
         await USDR.mint(swapper.address, directRepay);
 
         // Remove collateral
-        await setUSTTokenBalance(deployer, collatRemoved);
-        await UST.connect(deployer).transfer(swapper.address, collatRemoved);
+        await setcrvFRAXTokenBalance(deployer, collatRemoved);
+        await crvFRAX.connect(deployer).transfer(swapper.address, collatRemoved);
 
         // Do swap
-        await swapper.repayHook(UST.address, swapData);
+        await swapper.repayHook(crvFRAX.address, swapData);
 
         // Check balance
 
@@ -234,22 +237,23 @@ describe('UST3PoolSwapper', () => {
         const myBal = await yieldVault.convertShares(USDR.address, myShares, 0);
 
         expect(myBal).to.be.gte(minRepayment);
-        await checkSwapperEmptyBalance(swapper, USDR, UST);
+        await checkSwapperEmptyBalance(swapper, USDR, crvFRAX, POOL3);
     });
     it("liquidateHook", async () => {
         const {
             swapper,
             USDR,
-            UST,
+            crvFRAX,
+            POOL3,
             yieldVault,
             deployer,
             otherAddress1
         } = await snapshot();
 
         const SLIPPAGE_TOLERANCE = 180;
-        const collateralLiquidated = BigNumber.from(945 * 10**6); // 94.5 UST
+        const collateralLiquidated = ethers.utils.parseEther('945');
         const repayRequired = ethers.utils.parseEther('904.5');
-        const min3Pool = collateralLiquidated.sub(collateralLiquidated.mul(SLIPPAGE_TOLERANCE).div(10000)).mul(ethers.utils.parseEther('1')).div(10**6);
+        const min3Pool = collateralLiquidated.sub(collateralLiquidated.mul(SLIPPAGE_TOLERANCE).div(10000));
 
         const abiCoder = new ethers.utils.AbiCoder();
         const swapData = abiCoder.encode(
@@ -263,12 +267,12 @@ describe('UST3PoolSwapper', () => {
         );
 
         // Remove collateral
-        await setUSTTokenBalance(deployer, collateralLiquidated);
-        await UST.connect(deployer).transfer(swapper.address, collateralLiquidated);
+        await setcrvFRAXTokenBalance(deployer, collateralLiquidated);
+        await crvFRAX.connect(deployer).transfer(swapper.address, collateralLiquidated);
 
         // Liquidate
         await swapper.liquidateHook(
-            UST.address,
+            crvFRAX.address,
             otherAddress1.address,
             repayRequired,
             0,
@@ -283,6 +287,6 @@ describe('UST3PoolSwapper', () => {
         console.log(`Liquidate user reward: ${userReward}`);
         expect(userReward).to.be.gte(ethers.utils.parseEther("1"));
 
-        await checkSwapperEmptyBalance(swapper, USDR, UST);
+        await checkSwapperEmptyBalance(swapper, USDR, crvFRAX, POOL3);
     });
 });
