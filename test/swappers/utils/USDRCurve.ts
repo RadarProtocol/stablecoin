@@ -139,3 +139,17 @@ export const setyvUSDTV2TokenBalance = async (
         true
     );
 }
+
+export const setcrvstETHTokenBalance = async (
+    receiver: SignerWithAddress,
+    amount: BigNumberish
+) => {
+    await manipulateLocalERC20Balance(
+        receiver,
+        "0x06325440D014e39736583c165C2963BA99fAf14E",
+        2, // Slot for crvstETH token
+        receiver.address,
+        amount,
+        true
+    );
+}
