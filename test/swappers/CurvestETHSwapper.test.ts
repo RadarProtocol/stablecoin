@@ -2,7 +2,7 @@ import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { expect } from "chai";
 import { BigNumber, BigNumberish } from "ethers";
 import { ethers } from "hardhat";
-import { CurvestETHSwapper, LickHitter, RadarUSD } from "../../typechain";
+import { CurvestETHSwapper } from "../../typechain";
 import { deployUSDR3PoolCurveFactory, set3PoolTokenBalance , setcrvstETHTokenBalance } from "./utils/USDRCurve";
 
 const CurveVirtualPriceInterface = new ethers.utils.Interface([
