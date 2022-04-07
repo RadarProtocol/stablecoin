@@ -2,6 +2,7 @@ import { expect } from "chai";
 import { BigNumber, BigNumberish } from "ethers";
 import { ethers } from "hardhat";
 import { LickHitter, RadarUSD, Yearn3PoolUnderlyingSwapper } from "../../typechain";
+import { allowanceCheck } from "./utils/SwapperTestUtils";
 import { deployUSDR3PoolCurveFactory, set3PoolTokenBalance , setyvDAIV2TokenBalance, setyvUSDTV2TokenBalance, setyvUSDCV2TokenBalance } from "./utils/USDRCurve";
 
 const YearnSharePriceInterface = new ethers.utils.Interface([
@@ -138,37 +139,9 @@ describe('Yearn3PoolUnderlyingSwapper', () => {
             yieldVault
         } = await snapshot();
 
-        const allowanceCheck = async (
-            USDR: RadarUSD,
-            USDRPool: any,
-            DAI: any,
-            USDC: any,
-            USDT: any,
-            yv: any,
-            swapper: Yearn3PoolUnderlyingSwapper,
-            allowance: BigNumberish
-        ) => {
-            const a1 = await USDR.allowance(swapper.address, USDRPool.address);
-            const a2 = await DAI.allowance(swapper.address, USDRPool.address);
-            const a3 = await USDC.allowance(swapper.address, USDRPool.address);
-            const a4 = await USDT.allowance(swapper.address, USDRPool.address);
-            const a5 = await USDR.allowance(swapper.address, yv.address);
-
-            expect(a1)
-            .to.eq(a2)
-            .to.eq(a3)
-            .to.eq(a4)
-            .to.eq(a5)
-            .to.eq(allowance);
-        }
-
         await allowanceCheck(
-            USDR,
-            USDRPool,
-            DAI,
-            USDC,
-            USDT,
-            yieldVault,
+            [USDR, DAI, USDC, USDT, USDR],
+            [USDRPool.address, USDRPool.address, USDRPool.address, USDRPool.address, yieldVault.address],
             swapper,
             0
         );
@@ -176,12 +149,8 @@ describe('Yearn3PoolUnderlyingSwapper', () => {
         await swapper.reApprove();
 
         await allowanceCheck(
-            USDR,
-            USDRPool,
-            DAI,
-            USDC,
-            USDT,
-            yieldVault,
+            [USDR, DAI, USDC, USDT, USDR],
+            [USDRPool.address, USDRPool.address, USDRPool.address, USDRPool.address, yieldVault.address],
             swapper,
             ethers.constants.MaxUint256
         );

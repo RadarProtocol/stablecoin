@@ -1,7 +1,8 @@
 import { expect } from "chai";
-import { BigNumber, BigNumberish } from "ethers";
+import { BigNumber } from "ethers";
 import { ethers } from "hardhat";
-import { LickHitter, RadarUSD, YVWETHV2Swapper } from "../../typechain";
+import { YVWETHV2Swapper } from "../../typechain";
+import { allowanceCheck } from "./utils/SwapperTestUtils";
 import { deployUSDR3PoolCurveFactory, set3PoolTokenBalance , setyvWETHV2TokenBalance } from "./utils/USDRCurve";
 
 const YearnSharePriceInterface = new ethers.utils.Interface([
@@ -120,41 +121,9 @@ describe('YVWETHV2Swapper', () => {
             yieldVault
         } = await snapshot();
 
-        const allowanceCheck = async (
-            USDR: RadarUSD,
-            USDRPool: any,
-            USDC: any,
-            UNI_ROUTER: any,
-            yvw: any,
-            yv: any,
-            weth: any,
-            swapper: YVWETHV2Swapper,
-            allowance: BigNumberish
-        ) => {
-            const a1 = await USDR.allowance(swapper.address, USDRPool.address);
-            const a2 = await USDC.allowance(swapper.address, UNI_ROUTER);
-            const a3 = await weth.allowance(swapper.address, yvw.address);
-            const a4 = await weth.allowance(swapper.address, UNI_ROUTER);
-            const a5 = await USDC.allowance(swapper.address, USDRPool.address);
-            const a6 = await USDR.allowance(swapper.address, yv.address);
-
-            expect(a1)
-            .to.eq(a2)
-            .to.eq(a3)
-            .to.eq(a4)
-            .to.eq(a5)
-            .to.eq(a6)
-            .to.eq(allowance);
-        }
-
         await allowanceCheck(
-            USDR,
-            USDRPool,
-            USDC,
-            UNISWAP_V3_ROUTER,
-            yvWETH,
-            yieldVault,
-            WETH,
+            [USDR, USDC, WETH, WETH, USDC, USDR],
+            [USDRPool.address, UNISWAP_V3_ROUTER, yvWETH.address, UNISWAP_V3_ROUTER, USDRPool.address, yieldVault.address],
             swapper,
             0
         );
@@ -162,13 +131,8 @@ describe('YVWETHV2Swapper', () => {
         await swapper.reApprove();
 
         await allowanceCheck(
-            USDR,
-            USDRPool,
-            USDC,
-            UNISWAP_V3_ROUTER,
-            yvWETH,
-            yieldVault,
-            WETH,
+            [USDR, USDC, WETH, WETH, USDC, USDR],
+            [USDRPool.address, UNISWAP_V3_ROUTER, yvWETH.address, UNISWAP_V3_ROUTER, USDRPool.address, yieldVault.address],
             swapper,
             ethers.constants.MaxUint256
         );

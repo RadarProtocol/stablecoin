@@ -3,6 +3,7 @@ import { expect } from "chai";
 import { BigNumber, BigNumberish } from "ethers";
 import { ethers } from "hardhat";
 import { CurvestETHSwapper } from "../../typechain";
+import { allowanceCheck } from "./utils/SwapperTestUtils";
 import { deployUSDR3PoolCurveFactory, set3PoolTokenBalance , setcrvstETHTokenBalance } from "./utils/USDRCurve";
 
 const CurveVirtualPriceInterface = new ethers.utils.Interface([
@@ -135,18 +136,6 @@ describe('CurvestETHSwapper', () => {
             swapper,
             yieldVault
         } = await snapshot();
-
-        const allowanceCheck = async (
-            tokens: Array<any>,
-            spenders: Array<any>,
-            swapper: any,
-            allowance: any
-        ) => {
-            for(var i = 0; i < tokens.length; i++) {
-                const a = await tokens[i].allowance(swapper.address, spenders[i]);
-                expect(a).to.eq(allowance);
-            }
-        }
 
         await allowanceCheck(
             [USDR, USDC, crvstETH, crvstETH, WETH, USDC, USDR],
