@@ -128,12 +128,15 @@ contract LickHitter {
     }
 
     function addSupportedToken(address _token, uint256 _bufferSize) external onlyOwner {
-        require(!supportedTokens[_token], "Token already added");
+        _addSupportedToken(_token, _bufferSize);
+    }
 
-        supportedTokens[_token] = true;
-        bufferSize[_token] = _bufferSize;
+    function addSupportedTokens(address[] calldata _tokens, uint256[] calldata _bufferSizes) external onlyOwner {
+        require(_tokens.length == _bufferSizes.length, "Invalid data");
 
-        emit TokenAdded(_token, _bufferSize);
+        for(uint8 i = 0; i < _tokens.length; i++) {
+            _addSupportedToken(_tokens[i], _bufferSizes[i]);
+        }
     }
 
     function removeSupportedToken(address _token) external onlyOwner {
@@ -197,16 +200,16 @@ contract LickHitter {
     function executeStrategy(address _token) external onlyPokeMe {
         address _strategy = strategies[_token];
         require(_strategy != address(0) && supportedTokens[_token], "Strategy doesn't exist");
-        // TODO: Maybe use Gelato's check every block aka revert if harvesting is not needed. - https://github.com/RadarProtocol/stablecoin/issues/10
-        require(IStrategy(_strategy).shouldHarvest(_token), "Cannot harvest");
 
         // Harvest strategy
-        IStrategy(_strategy).harvest(_token);
+        if (IStrategy(_strategy).shouldHarvest(_token)) {
+            IStrategy(_strategy).harvest(_token);
+        }
 
         // Deposit to strategy
         uint256 _contractBalance = IERC20(_token).balanceOf(address(this));
         uint256 _bufferSize = bufferSize[_token];
-        if (_contractBalance > _bufferSize) {
+        if (_contractBalance > _bufferSize && _contractBalance != 0) {
             uint256 _depositAmount;
             unchecked {
                 _depositAmount = _contractBalance - _bufferSize;
@@ -217,6 +220,15 @@ contract LickHitter {
     }
 
     // Internal Functions
+
+    function _addSupportedToken(address _token, uint256 _bufferSize) internal {
+        require(!supportedTokens[_token], "Token already added");
+
+        supportedTokens[_token] = true;
+        bufferSize[_token] = _bufferSize;
+
+        emit TokenAdded(_token, _bufferSize);
+    }
 
     function _deposit(address _token, address _payer, address _destination, uint256 _amount) internal returns (uint256) {
         require(supportedTokens[_token], "Token not supported");

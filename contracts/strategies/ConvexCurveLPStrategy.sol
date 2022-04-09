@@ -41,10 +41,10 @@ contract ConvexCurveLPStrategy is IStrategy {
     address private constant CVX = 0x4e3FBD56CD56c3e72c1403e103b45Db9da5B9D2B;
     address private constant USDT = 0xdAC17F958D2ee523a2206206994597C13D831ec7;
     address private constant CRV3 = 0x6c3F90f043a72FA612cbac8115EE7e52BDe6E490;
-    address private constant CRV_ETH_POOL = 0x8301AE4fc9c624d1D396cbDAa1ed877821D7C511;
-    address private constant CVX_ETH_POOL = 0xB576491F1E6e5E62f1d8F26062Ee822B40B0E0d4;
+    address payable private constant CRV_ETH_POOL = payable(0x8301AE4fc9c624d1D396cbDAa1ed877821D7C511);
+    address payable private constant CVX_ETH_POOL = payable(0xB576491F1E6e5E62f1d8F26062Ee822B40B0E0d4);
     address payable private constant TRICRYPTO_POOL = payable(0xD51a44d3FaE010294C616388b506AcdA1bfAAE46);
-    address payable private constant CRV3_POOL = payable(0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7);
+    address private constant CRV3_POOL = 0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7;
 
     mapping(address => uint256) private cvxPoolIds;
     mapping(address => CurvePoolType) private poolTypes;
@@ -53,8 +53,9 @@ contract ConvexCurveLPStrategy is IStrategy {
     uint256 private minHarvestCRVAmount;
 
     enum CurvePoolType {
-        USD,
-        ETH
+        USDMetapool,
+        ETH,
+        USDDirectUnderlying
     }
 
     modifier onlyLickHitter {
@@ -116,10 +117,7 @@ contract ConvexCurveLPStrategy is IStrategy {
         uint256 _amount
     ) external override onlyLickHitter requireSupportedToken(_token) {
         IERC20(_token).safeTransferFrom(msg.sender, address(this), _amount);
-        uint256 _balance = IERC20(_token).balanceOf(address(this));
-
-        _cvxPoolApprove(_token, _balance);
-        IConvex(CONVEX).deposit(cvxPoolIds[_token], _balance, true);
+        _deposit(_token);
     }
 
     function withdrawFromStrategy(
@@ -153,13 +151,13 @@ contract ConvexCurveLPStrategy is IStrategy {
         CurvePoolType _pt = poolTypes[_token];
         IConvexRewards(_pi.crvRewards).getReward();
 
-        if (_pt == CurvePoolType.USD) {
+        if (_pt == CurvePoolType.USDMetapool) {
 
             // Rewards to ETH
             _rewards2ETH();
 
             // ETH to USDT
-            IPayableCurvePool(TRICRYPTO_POOL).exchange{value: address(this).balance}(2, 0, address(this).balance, 0, address(this));
+            _eth2USDT();
 
             // Deposit USDT to get 3Crv
             uint256 _usdtBal = IERC20(USDT).balanceOf(address(this));
@@ -182,16 +180,37 @@ contract ConvexCurveLPStrategy is IStrategy {
 
             // Deposit ETH to get Curve LP Token
             ICurvePool(curvePools[_token]).add_liquidity{value: address(this).balance}([address(this).balance, 0], 0); // All ETH pools have ETH as coin0
+        } else if(_pt == CurvePoolType.USDDirectUnderlying) {
+            // Rewards to ETH
+            _rewards2ETH();
+
+            // ETH to USDT
+            _eth2USDT();
+
+            uint256 _usdtBal = IERC20(USDT).balanceOf(address(this));
+            if (IERC20(USDT).allowance(address(this), curvePools[_token]) < _usdtBal) {
+                IERC20(USDT).safeApprove(curvePools[_token], MAX_UINT);
+            }
+            ICurvePool(curvePools[_token]).add_liquidity([0, 0, _usdtBal], 0, true);
         } else {
             revert("Invalid PT");
         }
 
-        // depositToStrategy will be called after harvest,
-        // so harvested Curve LP tokens will be deposited to
-        // Convex automatically
+        _deposit(_token);
     }
 
     // Internal functions
+
+    function _deposit(address _token) internal {
+        uint256 _balance = IERC20(_token).balanceOf(address(this));
+
+        _cvxPoolApprove(_token, _balance);
+        IConvex(CONVEX).deposit(cvxPoolIds[_token], _balance, true);
+    }
+
+    function _eth2USDT() internal {
+        ICurveTricryptoPool(TRICRYPTO_POOL).exchange{value: address(this).balance}(2, 0, address(this).balance, 0, true);
+    }
 
     function _rewards2ETH() internal {
         uint256 _crvBal = IERC20(CRV).balanceOf(address(this));
@@ -204,8 +223,12 @@ contract ConvexCurveLPStrategy is IStrategy {
             IERC20(CVX).safeApprove(CVX_ETH_POOL, MAX_UINT);
         }
 
-        ICurvePool(CRV_ETH_POOL).exchange(1, 0, _crvBal, 0, address(this));
-        ICurvePool(CVX_ETH_POOL).exchange(1, 0, _cvxBal, 0, address(this));
+        if (_crvBal != 0) {
+            ICurveCrvCvxEthPool(CRV_ETH_POOL).exchange_underlying(1, 0, _crvBal, 0);
+        }
+        if (_cvxBal != 0) {
+            ICurveCrvCvxEthPool(CVX_ETH_POOL).exchange_underlying(1, 0, _cvxBal, 0);
+        }
     }
 
     function _getPoolInfo(address _token) internal view returns (IConvex.PoolInfo memory) {

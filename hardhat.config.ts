@@ -45,6 +45,9 @@ const config: HardhatUserConfig = {
     },
     version: '0.8.2',
   },
+  mocha: {
+    timeout: 100000
+  },
   namedAccounts: {
     deployer: 0
   },
