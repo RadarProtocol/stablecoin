@@ -181,3 +181,31 @@ export const setcrvIBTokenBalance = async (
         true
     );
 }
+
+export const setCRVTokenBalance = async (
+    receiver: SignerWithAddress,
+    amount: BigNumberish
+) => {
+    await manipulateLocalERC20Balance(
+        receiver,
+        "0xD533a949740bb3306d119CC777fa900bA034cd52",
+        3, // Slot for CRV token
+        receiver.address,
+        amount,
+        true
+    );
+}
+
+export const setCVXTokenBalance = async (
+    receiver: SignerWithAddress,
+    amount: BigNumberish
+) => {
+    await manipulateLocalERC20Balance(
+        receiver,
+        "0x4e3fbd56cd56c3e72c1403e103b45db9da5b9d2b",
+        0, // Slot for CVX token
+        receiver.address,
+        amount,
+        false
+    );
+}
