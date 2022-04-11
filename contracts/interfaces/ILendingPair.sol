@@ -23,4 +23,5 @@ pragma solidity ^0.8.2;
 
 interface ILendingPair {
     function getOwner() external view returns (address);
+    function deposit(uint256 _amount, address _receiver) external;
 }

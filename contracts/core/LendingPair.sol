@@ -239,8 +239,9 @@ contract LendingPair is ReentrancyGuard {
 
     /// @notice Deposit collateral. Just specify amount. Must have allowance for this contract (collateral)
     /// @param _amount Collateral amount (not `LickHitter` shares, direct collateral)
-    function deposit(uint256 _amount) external {
-        _deposit(_amount);
+    /// @param _receiver Address which will receive collateral shares
+    function deposit(uint256 _amount, address _receiver) external {
+        _deposit(_amount, _receiver);
     }
 
     /// @notice Withdraw collateral.
@@ -287,7 +288,7 @@ contract LendingPair is ReentrancyGuard {
         uint256 _borrowAmount,
         address _receivingAddress
     ) external updateExchangeRate {
-        _deposit(_depositAmount);
+        _deposit(_depositAmount, msg.sender);
         _borrow(_receivingAddress, _borrowAmount);
         require(_userSafe(msg.sender), "User not safe");
     }
@@ -555,13 +556,13 @@ contract LendingPair is ReentrancyGuard {
         return ((_collateralValue * MAX_LTV) / GENERAL_DIVISOR) >= _borrowed;
     }
 
-    function _deposit(uint256 _amount) internal {
+    function _deposit(uint256 _amount, address _receiver) internal {
         IERC20(collateral).safeTransferFrom(msg.sender, address(this), _amount);
         IERC20(collateral).safeApprove(yieldVault, _amount);
         uint256 _sharesMinted = ILickHitter(yieldVault).deposit(collateral, address(this), _amount);
-        shareBalances[msg.sender] = shareBalances[msg.sender] + _sharesMinted;
+        shareBalances[_receiver] = shareBalances[_receiver] + _sharesMinted;
         totalShares = totalShares + _sharesMinted;
-        emit CollateralAdded(msg.sender, _amount, _sharesMinted);
+        emit CollateralAdded(_receiver, _amount, _sharesMinted);
     }
 
     function _withdraw(uint256 _amount, address _receiver) internal {

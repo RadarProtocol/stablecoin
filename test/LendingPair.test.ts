@@ -106,7 +106,7 @@ const deposit = async (
     await collateral.mint(investor.address, amount);
     await collateral.connect(investor).approve(lendingPair.address, amount);
 
-    const tx = await lendingPair.connect(investor).deposit(amount);
+    const tx = await lendingPair.connect(investor).deposit(amount, investor.address);
     const receipt = await tx.wait();
 
     return receipt;
@@ -867,7 +867,7 @@ describe("Lending Pair", () => {
 
         await collateral.connect(investor1).approve(lendingPair.address, tmpAmount);
         await collateral.mint(investor1.address, tmpAmount);
-        await lendingPair.connect(investor1).deposit(tmpAmount);
+        await lendingPair.connect(investor1).deposit(tmpAmount, investor1.address);
         await lendingPair.connect(investor1).borrow(investor1.address, borrowAmount2);
 
         // Repay all inv2 for inv1
@@ -1496,7 +1496,7 @@ describe("Lending Pair", () => {
         // Do this to update oracle price
         await collateral.mint(otherAddress1.address, 10);
         await collateral.connect(otherAddress1).approve(lendingPair.address, 10);
-        await lendingPair.connect(otherAddress1).deposit(10);
+        await lendingPair.connect(otherAddress1).deposit(10, otherAddress1.address);
         await lendingPair.connect(otherAddress1).withdraw(10, otherAddress1.address);
 
         await checkUserIsSafe(investor1, lendingPair, false);

@@ -209,3 +209,31 @@ export const setCVXTokenBalance = async (
         false
     );
 }
+
+export const setUSDTTokenBalance = async (
+    receiver: SignerWithAddress,
+    amount: BigNumberish
+) => {
+    await manipulateLocalERC20Balance(
+        receiver,
+        "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+        2, // Slot for USDT token
+        receiver.address,
+        amount,
+        false
+    );
+}
+
+export const setFRAXTokenBalance = async (
+    receiver: SignerWithAddress,
+    amount: BigNumberish
+) => {
+    await manipulateLocalERC20Balance(
+        receiver,
+        "0x853d955aCEf822Db058eb8505911ED77F175b99e",
+        0, // Slot for FRAX token
+        receiver.address,
+        amount,
+        false
+    );
+}
