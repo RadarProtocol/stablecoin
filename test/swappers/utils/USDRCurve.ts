@@ -237,3 +237,17 @@ export const setFRAXTokenBalance = async (
         false
     );
 }
+
+export const setDAITokenBalance = async (
+    receiver: SignerWithAddress,
+    amount: BigNumberish
+) => {
+    await manipulateLocalERC20Balance(
+        receiver,
+        "0x6B175474E89094C44Da98b954EedeAC495271d0F",
+        2, // Slot for DAI token
+        receiver.address,
+        amount,
+        false
+    );
+}
