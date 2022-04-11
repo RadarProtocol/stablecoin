@@ -32,17 +32,17 @@ contract Stabilizer {
 
     uint256 private constant MAX_UINT = 2**256 - 1;
 
-    address private pokeMe;
+    address public pokeMe;
     address private immutable USDR;
 
     uint256 private constant GENERAL_DIVISOR = 10000;
     uint256 public MINT_FEE;
     uint256 public BURN_FEE;
 
-    address private FEE_RECEIVER;
-    address private yieldVault;
+    address public FEE_RECEIVER;
+    address public yieldVault;
 
-    mapping(address => bool) public supportedTokens;
+    mapping(address => bool) private supportedTokens;
     mapping(address => uint8) private tokenDecimals;
     mapping(address => uint256) private accumulatedFees;
 
@@ -84,6 +84,7 @@ contract Stabilizer {
         for(uint8 i = 0; i < _tokens.length; i++) {
             supportedTokens[_tokens[i]] = true;
             tokenDecimals[_tokens[i]] = IERC20Metadata(_tokens[i]).decimals();
+            IERC20(_tokens[i]).safeApprove(_yv, MAX_UINT);
         }
     }
 
@@ -93,9 +94,17 @@ contract Stabilizer {
         pokeMe = _newPM;
     }
 
+    function backupReApprove(address _token) external onlyOwner {
+        IERC20(_token).safeApprove(yieldVault, 0);
+        IERC20(_token).safeApprove(yieldVault, MAX_UINT);
+    }
+
     function addSupportedToken(address _token) external onlyOwner {
         supportedTokens[_token] = true;
         tokenDecimals[_token] = IERC20Metadata(_token).decimals();
+        if (IERC20(_token).allowance(address(this), yieldVault) == 0) {
+            IERC20(_token).safeApprove(yieldVault, MAX_UINT);
+        }
     }
 
     function removeSupportedToken(address _token) external onlyOwner {
@@ -112,14 +121,13 @@ contract Stabilizer {
         yieldVault = _newYV;
     }
 
-    function withdrawAllFromYieldFarming(address _token, uint256 _shares) external onlyOwner {
+    function withdrawFromYieldFarming(address _token, uint256 _shares) external onlyOwner {
         ILickHitter(yieldVault).withdraw(_token, address(this), _shares);
     }
 
     // PokeMe functions
 
     function depositToYieldFarming(address _token, uint256 _tokenAmount) external onlyPokeMe requireSupportedToken(_token) {
-        _checkAllowanceAndApprove(_token, yieldVault, _tokenAmount);
         ILickHitter(yieldVault).deposit(_token, address(this), _tokenAmount);
     }
 
@@ -138,7 +146,9 @@ contract Stabilizer {
         IERC20(_token).safeTransferFrom(msg.sender, address(this), _amount);
 
         uint256 _fee = (_amount * MINT_FEE) / GENERAL_DIVISOR;
-        accumulatedFees[_token] = accumulatedFees[_token] + _fee;
+        if (_fee > 0) {
+            accumulatedFees[_token] = accumulatedFees[_token] + _fee;
+        }
         uint256 _scaledAmount = (_amount - _fee) * (10**(18-tokenDecimals[_token]));
 
         IRadarUSD(USDR).mint(msg.sender, _scaledAmount);
@@ -156,7 +166,9 @@ contract Stabilizer {
         uint256 _fee = (_scaledAmount * BURN_FEE) / GENERAL_DIVISOR;
         uint256 _sendAmount = _scaledAmount - _fee;
 
-        accumulatedFees[_token] = accumulatedFees[_token] + _fee;
+        if (_fee > 0) {
+            accumulatedFees[_token] = accumulatedFees[_token] + _fee;
+        }
         require(_sendAmount <= _availableForBurning(_token), "Not enough tokens");
 
         if (_permitData.length > 0) {
@@ -190,16 +202,6 @@ contract Stabilizer {
         IRadarUSD(USDR).permit(_owner, _spender, _value, _deadline, _v, _r, _s);
     }
 
-    function _checkAllowanceAndApprove(
-        address _asset,
-        address _spender,
-        uint256 _amt
-    ) internal {
-        if (IERC20(_asset).allowance(address(this), _spender) < _amt) {
-            IERC20(_asset).safeApprove(_spender, MAX_UINT);
-        }
-    }
-
     function _yfInvested(address _t) internal view returns (uint256) {
         uint256 _myS = ILickHitter(yieldVault).balanceOf(_t, address(this));
         return ILickHitter(yieldVault).convertShares(_t, _myS, 0);
@@ -218,5 +220,9 @@ contract Stabilizer {
 
     function getAccumulatedFees(address _token) external view returns (uint256) {
         return accumulatedFees[_token];
+    }
+
+    function isSupportedToken(address _token) external view returns (bool) {
+        return supportedTokens[_token];
     }
 }
