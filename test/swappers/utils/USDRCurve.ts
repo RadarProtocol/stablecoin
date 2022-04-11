@@ -209,3 +209,17 @@ export const setCVXTokenBalance = async (
         false
     );
 }
+
+export const setUSDTTokenBalance = async (
+    receiver: SignerWithAddress,
+    amount: BigNumberish
+) => {
+    await manipulateLocalERC20Balance(
+        receiver,
+        "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+        2, // Slot for USDT token
+        receiver.address,
+        amount,
+        false
+    );
+}
