@@ -223,3 +223,17 @@ export const setUSDTTokenBalance = async (
         false
     );
 }
+
+export const setFRAXTokenBalance = async (
+    receiver: SignerWithAddress,
+    amount: BigNumberish
+) => {
+    await manipulateLocalERC20Balance(
+        receiver,
+        "0x853d955aCEf822Db058eb8505911ED77F175b99e",
+        0, // Slot for FRAX token
+        receiver.address,
+        amount,
+        false
+    );
+}
