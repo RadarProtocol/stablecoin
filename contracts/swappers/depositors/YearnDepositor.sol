@@ -59,6 +59,7 @@ contract YearnDepositor {
 
         // Deposit to lending pair
         uint256 _yAmount = IERC20(_yearnAsset).balanceOf(address(this));
+        require(_yAmount > 0, "Safety fail");
         _checkAllowanceAndApprove(_yearnAsset, _lendingPair, _yAmount);
         ILendingPair(_lendingPair).deposit(_yAmount, _receiver);
     }
