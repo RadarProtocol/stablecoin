@@ -3,7 +3,7 @@ import { expect } from "chai";
 import { BigNumber, BigNumberish, Contract } from "ethers";
 import { ethers } from "hardhat";
 import { LendingPair, LickHitter, RadarUSD, MockLiquidator } from "../typechain";
-import { MockSwapper } from "../typechain/MockSwapper";
+import { signERC2612Permit } from "eth-permit";
 
 const DUST = ethers.utils.parseEther('0.0001');
 
@@ -139,13 +139,15 @@ const repayAndWithdraw = async (
     repayAmount: BigNumberish,
     repayReceiver: SignerWithAddress,
     withdrawAmount: BigNumberish,
-    withdrawReceiver: SignerWithAddress
+    withdrawReceiver: SignerWithAddress,
+    permitData: any
 ) => {
     const tx = await lendingPair.connect(investor).repayAndWithdraw(
         repayAmount,
         repayReceiver.address,
         withdrawAmount,
-        withdrawReceiver.address
+        withdrawReceiver.address,
+        permitData
     );
     const rc = await tx.wait();
     return rc;
@@ -811,7 +813,7 @@ describe("Lending Pair", () => {
         // Cannot repay an empty loan
         await stablecoin.mint(investor1.address, ethers.utils.parseEther('1'));
         await stablecoin.connect(investor1).approve(lendingPair.address, ethers.utils.parseEther('1'));
-        await expect(lendingPair.connect(investor1).repay(investor1.address, ethers.utils.parseEther('0.5'))).to.be.revertedWith(
+        await expect(lendingPair.connect(investor1).repay(investor1.address, ethers.utils.parseEther('0.5'), [])).to.be.revertedWith(
             "reverted with panic code 0x11 (Arithmetic operation underflowed or overflowed outside of an unchecked block)"
         );
         await stablecoin.connect(investor1).burn(ethers.utils.parseEther('1'));
@@ -835,10 +837,10 @@ describe("Lending Pair", () => {
         await stablecoin.mint(investor1.address, tmpAmount);
         await stablecoin.mint(investor2.address, tmpAmount);
         await stablecoin.connect(investor1).approve(lendingPair.address, tmpAmount);
-        await stablecoin.connect(investor2).approve(lendingPair.address, tmpAmount);
+        // await stablecoin.connect(investor2).approve(lendingPair.address, tmpAmount);
 
         // Repay all inv1
-        const rptx1 = await lendingPair.connect(investor1).repay(investor1.address, borrowAmount1.add(borrowAmount1Fee));
+        const rptx1 = await lendingPair.connect(investor1).repay(investor1.address, borrowAmount1.add(borrowAmount1Fee), []);
         const rprc1 = await rptx1.wait();
         const e1 = rprc1.events![rprc1.events!.length-1];
         var repayFee1 = borrowAmount1.add(borrowAmount1Fee).div(100);
@@ -871,7 +873,19 @@ describe("Lending Pair", () => {
         await lendingPair.connect(investor1).borrow(investor1.address, borrowAmount2);
 
         // Repay all inv2 for inv1
-        const rptx2 = await lendingPair.connect(investor2).repay(investor1.address, borrowAmount2.add(borrowAmount2Fee));
+        const sig = await signERC2612Permit(
+            investor2,
+            stablecoin.address,
+            investor2.address,
+            lendingPair.address,
+            tmpAmount.toString()
+        );
+        const abiCoder = new ethers.utils.AbiCoder();
+        const permitData = abiCoder.encode(
+            ["address", "address", "uint", "uint", "uint8", "bytes32", "bytes32"],
+            [investor2.address, lendingPair.address, tmpAmount, sig.deadline, sig.v, sig.r, sig.s]
+        );
+        const rptx2 = await lendingPair.connect(investor2).repay(investor1.address, borrowAmount2.add(borrowAmount2Fee), permitData);
         const rprc2 = await rptx2.wait();
         const e2 = rprc2.events![rprc2.events!.length-1];
         var repayFee2 = borrowAmount2.add(borrowAmount2Fee).div(100);
@@ -902,7 +916,7 @@ describe("Lending Pair", () => {
         await stablecoin.mint(investor2.address, tmpAmount);
         await stablecoin.connect(investor2).approve(lendingPair.address, tmpAmount);
         
-        const rptx3 = await lendingPair.connect(investor2).repay(investor2.address, borrowAmount2.add(borrowAmount2Fee));
+        const rptx3 = await lendingPair.connect(investor2).repay(investor2.address, borrowAmount2.add(borrowAmount2Fee), []);
         const rprc3 = await rptx3.wait();
         const e3 = rprc3.events![rprc3.events!.length-1];
         var repayFee3 = borrowAmount2.add(borrowAmount2Fee).div(100);
@@ -1254,7 +1268,7 @@ describe("Lending Pair", () => {
         await stablecoin.mint(investor1.address, tmpAmount);
         await stablecoin.mint(investor2.address, tmpAmount);
         await stablecoin.connect(investor1).approve(lendingPair.address, tmpAmount);
-        await stablecoin.connect(investor2).approve(lendingPair.address, tmpAmount);
+        // await stablecoin.connect(investor2).approve(lendingPair.address, tmpAmount);
 
         // Repay inv1 for inv1
         const rc1 = await repayAndWithdraw(
@@ -1263,7 +1277,8 @@ describe("Lending Pair", () => {
             borrowAmount1.add(borrowAmount1Fee),
             investor1,
             collateralAmount1,
-            investor1
+            investor1,
+            []
         );
         const repayEvent1 = rc1.events![6];
         const withdrawEvent1 = rc1.events![9];
@@ -1301,16 +1316,29 @@ describe("Lending Pair", () => {
         );
 
         // Repay inv2 for inv2
+        const sig = await signERC2612Permit(
+            investor2,
+            stablecoin.address,
+            investor2.address,
+            lendingPair.address,
+            tmpAmount.toString()
+        );
+        const abiCoder = new ethers.utils.AbiCoder();
+        const permitData = abiCoder.encode(
+            ["address", "address", "uint", "uint", "uint8", "bytes32", "bytes32"],
+            [investor2.address, lendingPair.address, tmpAmount, sig.deadline, sig.v, sig.r, sig.s]
+        );
         const rc2 = await repayAndWithdraw(
             investor2,
             lendingPair,
             borrowAmount2.add(borrowAmount2Fee),
             investor2,
             collateralAmount2,
-            investor2
+            investor2,
+            permitData
         );
-        const repayEvent2 = rc2.events![6];
-        const withdrawEvent2 = rc2.events![9];
+        const repayEvent2 = rc2.events![7];
+        const withdrawEvent2 = rc2.events![10];
         await repayAndWithdrawChecks(
             repayEvent2,
             withdrawEvent2,
@@ -1366,7 +1394,8 @@ describe("Lending Pair", () => {
                 borrowAmount1,
                 investor1.address,
                 collateralAmount2,
-                investor1.address
+                investor1.address,
+                []
             )
         ).to.be.revertedWith("User not safe");
 
@@ -1924,7 +1953,8 @@ describe("Lending Pair", () => {
             lendingPair.connect(investor1).hookedRepayAndWithdraw(
                 0,
                 ethers.utils.parseEther('1'),
-                "0x00"
+                "0x00",
+                []
             )
         ).to.be.revertedWith("Insufficient funds");
 
@@ -1932,7 +1962,8 @@ describe("Lending Pair", () => {
             lendingPair.connect(investor1).hookedRepayAndWithdraw(
                 ethers.utils.parseEther('1'),
                 ethers.utils.parseEther('1'),
-                "0x00"
+                "0x00",
+                []
             )
         ).to.be.revertedWith("ERC20: insufficient allowance");
         await stablecoin.connect(investor1).approve(lendingPair.address, ethers.utils.parseEther('1'));
@@ -1940,7 +1971,8 @@ describe("Lending Pair", () => {
             lendingPair.connect(investor1).hookedRepayAndWithdraw(
                 ethers.utils.parseEther('1'),
                 ethers.utils.parseEther('1'),
-                "0x00"
+                "0x00",
+                []
             )
         ).to.be.revertedWith("ERC20: transfer amount exceeds balance");
 
@@ -1995,7 +2027,8 @@ describe("Lending Pair", () => {
         const tx1 = await lendingPair.connect(investor1).hookedRepayAndWithdraw(
             directRepayAmount1,
             repayAmount1Collateral,
-            "0x00"
+            "0x00",
+            []
         );
         const rc1 = await tx1.wait();
         const we1 = rc1.events![2];
@@ -2044,15 +2077,28 @@ describe("Lending Pair", () => {
 
         await stablecoin.mint(mockSwapper.address, repayAmount2Collateral.mul(2));
         await stablecoin.mint(investor2.address, directyRepayAmount2);
-        await stablecoin.connect(investor2).approve(lendingPair.address, directyRepayAmount2);
+        // await stablecoin.connect(investor2).approve(lendingPair.address, directyRepayAmount2);
+        const sig = await signERC2612Permit(
+            investor2,
+            stablecoin.address,
+            investor2.address,
+            lendingPair.address,
+            directyRepayAmount2.toString()
+        );
+        const abiCoder = new ethers.utils.AbiCoder();
+        const permitData = abiCoder.encode(
+            ["address", "address", "uint", "uint", "uint8", "bytes32", "bytes32"],
+            [investor2.address, lendingPair.address, directyRepayAmount2, sig.deadline, sig.v, sig.r, sig.s]
+        );
         const tx2 = await lendingPair.connect(investor2).hookedRepayAndWithdraw(
             directyRepayAmount2,
             repayAmount2Collateral,
-            "0x00"
+            "0x00",
+            permitData
         );
         const rc2 = await tx2.wait();
-        const we2 = rc2.events![4];
-        const re2 = rc2.events![10];
+        const we2 = rc2.events![5];
+        const re2 = rc2.events![11];
         await RWhookChecks(
             we2,
             re2,
@@ -2191,7 +2237,7 @@ describe("Lending Pair", () => {
         await stablecoin.connect(investor1).approve(lendingPair.address, tmpAmount);
         await stablecoin.connect(investor2).approve(lendingPair.address, tmpAmount);
 
-        await lendingPair.connect(investor2).repay(investor2.address, borrowAmount2.add(borrowAmount2Fee));
+        await lendingPair.connect(investor2).repay(investor2.address, borrowAmount2.add(borrowAmount2Fee), []);
         var repayFee = borrowAmount2.add(borrowAmount2Fee).div(100);
         currentFee = currentFee.add(repayFee);
 
@@ -2315,7 +2361,8 @@ describe("Lending Pair", () => {
         await lendingPair.connect(investor1).hookedRepayAndWithdraw(
             directRepayAmount1,
             repayAmount1Collateral,
-            "0x00"
+            "0x00",
+            []
         );
         currentFee = currentFee.add(repayFee1)
         await feeCheck(
@@ -2331,7 +2378,8 @@ describe("Lending Pair", () => {
         await lendingPair.connect(investor2).hookedRepayAndWithdraw(
             directyRepayAmount2,
             repayAmount2Collateral,
-            "0x00"
+            "0x00",
+            []
         );
         currentFee = currentFee.add(repayFee2);
         await feeCheck(
