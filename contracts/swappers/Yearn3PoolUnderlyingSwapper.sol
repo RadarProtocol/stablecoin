@@ -111,6 +111,9 @@ contract Yearn3PoolUnderlyingSwapper is ISwapper, ILiquidator {
         // Save on SSTORE opcode, so approve is not called everytime
         uint256 _allowance = IERC20(_underlying).allowance(address(this), _collateral);
         if (_allowance < _receivedUnderlying) {
+            if (_allowance != 0) {
+                IERC20(_underlying).safeApprove(_collateral, 0);
+            }
             IERC20(_underlying).safeApprove(_collateral, MAX_UINT);
         }
         IYearnVaultV2(_collateral).deposit(_receivedUnderlying);
@@ -119,6 +122,9 @@ contract Yearn3PoolUnderlyingSwapper is ISwapper, ILiquidator {
         uint256 _myBal = IERC20(_collateral).balanceOf(address(this));
         uint256 _allowance2 = IERC20(_collateral).allowance(address(this), yieldVault);
         if (_allowance2 < _myBal) {
+            if (_allowance2 != 0) {
+                IERC20(_collateral).safeApprove(yieldVault, 0);
+            }
             IERC20(_collateral).safeApprove(yieldVault, MAX_UINT);
         }
         ILickHitter(yieldVault).deposit(_collateral, msg.sender, _myBal);

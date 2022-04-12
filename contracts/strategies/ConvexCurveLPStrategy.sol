@@ -88,8 +88,14 @@ contract ConvexCurveLPStrategy is IStrategy {
             cvxPoolIds[_tokens[i]] = _pids[i];
             poolTypes[_tokens[i]] = _poolTypes[i];
             curvePools[_tokens[i]] = _crvPools[i];
+            IERC20(_tokens[i]).safeApprove(CONVEX, MAX_UINT);
+            _swappersPoolApprove(_poolTypes[i], _crvPools[i], false);
         }
         minHarvestCRVAmount = _minHarvestCRVAmount;
+
+        IERC20(CRV).safeApprove(CRV_ETH_POOL, MAX_UINT);
+        IERC20(CVX).safeApprove(CVX_ETH_POOL, MAX_UINT);
+        IERC20(USDT).safeApprove(CRV3_POOL, MAX_UINT);
     }
 
     // Owner functions
@@ -98,6 +104,9 @@ contract ConvexCurveLPStrategy is IStrategy {
         cvxPoolIds[_token] = _pid;
         poolTypes[_token] = _pt;
         curvePools[_token] = _crvPool;
+        _swappersPoolApprove(_pt, _crvPool, true);
+        IERC20(_token).safeApprove(CONVEX, 0);
+        IERC20(_token).safeApprove(CONVEX, MAX_UINT);
     }
 
     function updateMinCRVHarvestAmount(uint256 _newAmt) external onlyOwner {
@@ -161,16 +170,10 @@ contract ConvexCurveLPStrategy is IStrategy {
 
             // Deposit USDT to get 3Crv
             uint256 _usdtBal = IERC20(USDT).balanceOf(address(this));
-            if (IERC20(USDT).allowance(address(this), CRV3_POOL) < _usdtBal) {
-                IERC20(USDT).safeApprove(CRV3_POOL, MAX_UINT);
-            }
             ICurvePool(CRV3_POOL).add_liquidity([0, 0, _usdtBal], 0);
 
             // Deposit 3Crv to get Curve LP Token
             uint256 _crv3Bal = IERC20(CRV3).balanceOf(address(this));
-            if (IERC20(CRV3).allowance(address(this), curvePools[_token]) < _crv3Bal) {
-                IERC20(CRV3).safeApprove(curvePools[_token], MAX_UINT);
-            }
             ICurvePool(curvePools[_token]).add_liquidity([0, _crv3Bal], 0);
 
         } else if (_pt == CurvePoolType.ETH) {
@@ -188,9 +191,6 @@ contract ConvexCurveLPStrategy is IStrategy {
             _eth2USDT();
 
             uint256 _usdtBal = IERC20(USDT).balanceOf(address(this));
-            if (IERC20(USDT).allowance(address(this), curvePools[_token]) < _usdtBal) {
-                IERC20(USDT).safeApprove(curvePools[_token], MAX_UINT);
-            }
             ICurvePool(curvePools[_token]).add_liquidity([0, 0, _usdtBal], 0, true);
         } else {
             revert("Invalid PT");
@@ -201,10 +201,22 @@ contract ConvexCurveLPStrategy is IStrategy {
 
     // Internal functions
 
+    function _swappersPoolApprove(CurvePoolType _pt, address _curvePool, bool _0ApproveFirst) internal {
+        if (_pt == CurvePoolType.USDMetapool) {
+            if (_0ApproveFirst) {
+                IERC20(CRV3).safeApprove(_curvePool, 0);
+            }
+            IERC20(CRV3).safeApprove(_curvePool, MAX_UINT);
+        } else if(_pt == CurvePoolType.USDDirectUnderlying) {
+            if (_0ApproveFirst) {
+                IERC20(USDT).safeApprove(_curvePool, 0);
+            }
+            IERC20(USDT).safeApprove(_curvePool, MAX_UINT);
+        }
+    }
+
     function _deposit(address _token) internal {
         uint256 _balance = IERC20(_token).balanceOf(address(this));
-
-        _cvxPoolApprove(_token, _balance);
         IConvex(CONVEX).deposit(cvxPoolIds[_token], _balance, true);
     }
 
@@ -215,13 +227,6 @@ contract ConvexCurveLPStrategy is IStrategy {
     function _rewards2ETH() internal {
         uint256 _crvBal = IERC20(CRV).balanceOf(address(this));
         uint256 _cvxBal = IERC20(CVX).balanceOf(address(this));
-
-        if (IERC20(CRV).allowance(address(this), CRV_ETH_POOL) < _crvBal) {
-            IERC20(CRV).safeApprove(CRV_ETH_POOL, MAX_UINT);
-        }
-        if (IERC20(CVX).allowance(address(this), CVX_ETH_POOL) < _cvxBal) {
-            IERC20(CVX).safeApprove(CVX_ETH_POOL, MAX_UINT);
-        }
 
         if (_crvBal != 0) {
             ICurveCrvCvxEthPool(CRV_ETH_POOL).exchange_underlying(1, 0, _crvBal, 0);
@@ -240,13 +245,6 @@ contract ConvexCurveLPStrategy is IStrategy {
         IConvex.PoolInfo memory _pi = _getPoolInfo(_token);
 
         return (_pi.lptoken == _token);
-    }
-
-    function _cvxPoolApprove(address _token, uint256 _amt) internal {
-        uint256 _allowance = IERC20(_token).allowance(address(this), CONVEX);
-        if (_allowance < _amt) {
-            IERC20(_token).safeApprove(CONVEX, MAX_UINT);
-        }
     }
 
     // State Getters
