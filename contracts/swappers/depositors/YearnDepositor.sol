@@ -69,7 +69,11 @@ contract YearnDepositor {
         address _spender,
         uint256 _amt
     ) internal {
-        if (IERC20(_asset).allowance(address(this), _spender) < _amt) {
+        uint256 _allowance = IERC20(_asset).allowance(address(this), _spender);
+        if (_allowance < _amt) {
+            if (_allowance != 0) {
+                IERC20(_asset).safeApprove(_spender, 0);
+            }
             IERC20(_asset).safeApprove(_spender, MAX_UINT);
         }
     }

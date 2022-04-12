@@ -30,11 +30,6 @@ const snapshot = async () => {
             poolType: 1,
             crvPool: "0xDC24316b9AE028F1497c275EB9192a3Ea0f67022"
         }, {
-            token: crvIB.address,
-            pid: 29,
-            poolType: 2,
-            crvPool: "0x2dded6Da1BF5DBdF597C45fcFaa3194e53EcfeAF"
-        }, {
             token: crvFRAX.address,
             pid: 32,
             poolType: 0,
@@ -57,6 +52,8 @@ const snapshot = async () => {
         ethers.utils.parseEther('1')
     );
 
+    await strategy.updatePid(crvIB.address, 29, 2, "0x2dded6Da1BF5DBdF597C45fcFaa3194e53EcfeAF");
+
     await yieldVault.addStrategy(crvstETH.address, strategy.address);
     await yieldVault.addStrategy(crvIB.address, strategy.address);
     await yieldVault.addStrategy(crvFRAX.address, strategy.address);
@@ -68,11 +65,11 @@ const snapshot = async () => {
         yieldVault,
         deployer,
         otherAddress1,
+        USDRFactory,
         investor,
         pokeMe,
         CRV,
         CVX,
-        USDRFactory,
         convexTokensStrategyData,
         strategy
     }
@@ -181,10 +178,13 @@ describe('ConvexCurveLPStrategy', () => {
         const {
             strategy,
             crvstETH,
-            otherAddress1
+            otherAddress1,
+            USDRFactory
         } = await snapshot();
 
-        await strategy.updatePid(otherAddress1.address, 0, 0, ethers.constants.AddressZero);
+        const mockToken = await USDRFactory.deploy();
+
+        await strategy.updatePid(mockToken.address, 0, 0, ethers.constants.AddressZero);
 
         const sh = await strategy.shouldHarvest(crvstETH.address);
         expect(sh).to.eq(false);
