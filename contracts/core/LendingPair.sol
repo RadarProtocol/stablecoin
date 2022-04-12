@@ -272,7 +272,11 @@ contract LendingPair is ReentrancyGuard {
     /// @param _repaymentReceiver The address to which the repayment is made: a user
     /// could repay the loan of another user.
     /// @param _amount Repay amount. Must have allowance for this contract (USDR)
-    function repay(address _repaymentReceiver, uint256 _amount) external {
+    /// @param _permitData optional. Use for permit() on USDR.
+    function repay(address _repaymentReceiver, uint256 _amount, bytes calldata _permitData) external {
+        if (_permitData.length > 0) {
+            _permitApprove(_permitData);
+        }
         _repay(_repaymentReceiver, _amount);
     }
 
@@ -301,12 +305,17 @@ contract LendingPair is ReentrancyGuard {
     /// @param _repaymentReceiver What address receives the repayment.
     /// @param _withdrawAmount How much collateral to withdraw.
     /// @param _withdrawReceiver The address which will receive the collateral.
+    /// @param _permitData optional. Use for permit() on USDR.
     function repayAndWithdraw(
         uint256 _repayAmount,
         address _repaymentReceiver,
         uint256 _withdrawAmount,
-        address _withdrawReceiver
+        address _withdrawReceiver,
+        bytes calldata _permitData
     ) external updateExchangeRate {
+        if (_permitData.length > 0) {
+            _permitApprove(_permitData);
+        }
         _repay(_repaymentReceiver, _repayAmount);
         _withdraw(_withdrawAmount, _withdrawReceiver);
         require(_userSafe(msg.sender), "User not safe");
@@ -385,12 +394,17 @@ contract LendingPair is ReentrancyGuard {
     /// swapper contract. It is the caller's responsability to check this `_swapData` will not
     /// partially fill an order, or leave any remaining collateral assets in the swapper,
     /// since those assets will be lost if not transffered during this transaction.
+    /// @param _permitData optional. Use for permit() on USDR.
     function hookedRepayAndWithdraw(
         uint256 _directRepayAmount,
         uint256 _withdrawAmount,
-        bytes calldata _swapData
+        bytes calldata _swapData,
+        bytes calldata _permitData
     ) external updateExchangeRate {
         // 1. Withdraw and send direct repay
+        if (_permitData.length > 0) {
+            _permitApprove(_permitData);
+        }
         if (_directRepayAmount != 0) {
             IERC20(lendAsset).safeTransferFrom(msg.sender, swapper, _directRepayAmount);
         }
@@ -539,6 +553,11 @@ contract LendingPair is ReentrancyGuard {
     }
 
     // Internal functions
+
+    function _permitApprove(bytes calldata _permitData) internal {
+        (address _owner, address _spender, uint _value, uint _deadline, uint8 _v, bytes32 _r, bytes32 _s) = abi.decode(_permitData, (address,address,uint,uint,uint8,bytes32,bytes32));
+        IRadarUSD(lendAsset).permit(_owner, _spender, _value, _deadline, _v, _r, _s);
+    }
 
     /// @dev Returns true if user is safe and doesn't need to be liquidated
     function _userSafe(address _user) internal view returns (bool) {
