@@ -5,6 +5,7 @@ import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { Stabilizer } from "../typechain/Stabilizer";
 import { LickHitter, RadarUSD } from "../typechain";
 import { BigNumber } from "ethers";
+import { signERC2612Permit } from 'eth-permit';
 
 const snapshot = async () => {
     const [deployer, investor, pokeMe, feeReceiver] = await ethers.getSigners();
@@ -236,7 +237,277 @@ describe('Stabilizer', () => {
             ]
         );
     });
-    it.skip("YF: deposit and withdraw");
-    it.skip("burn: USDT & DAI (permit + approve) (no withdraw + withdraw) (no fee + fee)");
-    it.skip("claim fees (no withdraw + withdraw)");
+    it("YF: deposit and withdraw", async () => {
+        const {
+            stabilizer,
+            investor,
+            USDT,
+            pokeMe,
+            yieldVault
+        } = await snapshot();
+
+        const yfDepositWithdrawChecks = async (
+            s: Stabilizer,
+            usdt: RadarUSD,
+            yv: LickHitter,
+            vc: Array<any>
+        ) => {
+            var i = 0;
+
+            const usdtStabBal = await usdt.balanceOf(s.address);
+            expect(usdtStabBal).to.eq(vc[i++]);
+
+            const usdtYvBal = await usdt.balanceOf(yv.address);
+            expect(usdtYvBal).to.eq(vc[i++]);
+
+            const yvShares = await yv.balanceOf(usdt.address, s.address);
+            expect(yvShares).to.eq(vc[i++]);
+        }
+
+        // Deposit
+        var mintAmount = BigNumber.from(100 * 10**6); // 100 USDT
+        await setUSDTTokenBalance(investor, mintAmount);
+        await USDT.connect(investor).approve(stabilizer.address, mintAmount);
+        await stabilizer.connect(investor).mint(USDT.address, mintAmount);
+
+        // Deposit to YF
+        await stabilizer.connect(pokeMe).depositToYieldFarming(USDT.address, mintAmount);
+
+        await yfDepositWithdrawChecks(
+            stabilizer,
+            USDT,
+            yieldVault,
+            [
+                0,
+                mintAmount,
+                mintAmount
+            ]
+        );
+
+        // Withdraw from YF
+        await stabilizer.withdrawFromYieldFarming(USDT.address, mintAmount);
+
+        await yfDepositWithdrawChecks(
+            stabilizer,
+            USDT,
+            yieldVault,
+            [
+                mintAmount,
+                0,
+                0
+            ]
+        );
+    });
+    it("burn: USDT & DAI (permit + approve) (no withdraw + withdraw) (no fee + fee)", async () => {
+        const {
+            stabilizer,
+            investor,
+            USDT,
+            USDR,
+            DAI,
+            yieldVault,
+            feeReceiver,
+            pokeMe
+        } = await snapshot();
+
+        // Mint with USDT
+        var mintAmount = BigNumber.from(100 * 10**6); // 100 USDT
+        await setUSDTTokenBalance(investor, mintAmount);
+        await USDT.connect(investor).approve(stabilizer.address, mintAmount);
+        await stabilizer.connect(investor).mint(USDT.address, mintAmount);
+
+        // Burn USDT with permit, no withdraw from YF and no fee
+        const sig = await signERC2612Permit(
+            investor,
+            USDR.address,
+            investor.address,
+            stabilizer.address,
+            mintAmount.mul(10**12).toString()
+        );
+        const abiCoder = new ethers.utils.AbiCoder();
+        const permitData = abiCoder.encode(
+            ["address", "address", "uint", "uint", "uint8", "bytes32", "bytes32"],
+            [investor.address, stabilizer.address, mintAmount.mul(10**12), sig.deadline, sig.v, sig.r, sig.s]
+        );
+        await USDR.connect(investor).approve(stabilizer.address, 0);
+        const tx1 = await stabilizer.connect(investor).burn(USDT.address, mintAmount.mul(10**12), permitData);
+        const rc1 = await tx1.wait();
+        const e1 = rc1.events![rc1.events!.length-1];
+        await mintBurnChecks(
+            USDT,
+            USDR,
+            investor,
+            stabilizer,
+            e1,
+            yieldVault,
+            [
+                "USDRBurned", // event name
+                investor.address, // event user
+                mintAmount.mul(10**12), // event amount
+                mintAmount, // user token bal
+                0, // user USDR bal
+                0, // stabilizer token bal
+                0, // stabilizer USDR bal
+                0, // available for burning
+                0, // accumulated fees
+                0 // stabilizer's yield vault shares
+            ]
+        );
+
+        // Mint with DAI
+        mintAmount = ethers.utils.parseEther('1000'); // 1000 DAI
+        var withdrawAmount = ethers.utils.parseEther('600');
+        var fee = ethers.utils.parseEther('6');
+        await setDAITokenBalance(investor, mintAmount);
+        await DAI.connect(investor).approve(stabilizer.address, mintAmount);
+        await stabilizer.connect(investor).mint(DAI.address, mintAmount);
+
+        // Burn DAI without permit, withdraw from YF and 1% fee
+        await stabilizer.connect(pokeMe).depositToYieldFarming(DAI.address, mintAmount.div(2));
+        await stabilizer.changeFees(100, 100, feeReceiver.address);
+        await USDR.connect(investor).approve(stabilizer.address, withdrawAmount);
+        const tx2 = await stabilizer.connect(investor).burn(DAI.address, withdrawAmount, []);
+        const rc2 = await tx2.wait();
+        const e2 = rc2.events![rc2.events!.length-1];
+        await mintBurnChecks(
+            DAI,
+            USDR,
+            investor,
+            stabilizer,
+            e2,
+            yieldVault,
+            [
+                "USDRBurned", // event name
+                investor.address, // event user
+                withdrawAmount, // event amount
+                withdrawAmount.sub(fee), // user token bal
+                mintAmount.sub(withdrawAmount), // user USDR bal
+                0, // stabilizer token bal
+                0, // stabilizer USDR bal
+                mintAmount.sub(withdrawAmount.sub(fee)).sub(fee), // available for burning
+                fee, // accumulated fees
+                ethers.utils.parseEther('406') // stabilizer's yield vault shares
+            ]
+        );
+
+        // Burning with enough balance but over fee
+        await stabilizer.changeFees(0, 0, feeReceiver.address);
+
+        // Contract still has 406 DAI but only 400 AFB, tx should fail
+        await expect(stabilizer.connect(investor).burn(DAI.address, ethers.utils.parseEther('401'), [])).to.be.revertedWith("Not enough tokens");
+    });
+    it("claim fees (no withdraw + withdraw)", async () => {
+        const {
+            stabilizer,
+            investor,
+            USDT,
+            USDR,
+            DAI,
+            yieldVault,
+            feeReceiver,
+            pokeMe
+        } = await snapshot();
+
+        const claimFeesCheck = async (
+            s: Stabilizer,
+            tkn: RadarUSD,
+            frcv: SignerWithAddress,
+            yv: LickHitter,
+            vc: Array<any>
+        ) => {
+            var i = 0;
+
+            const af = await s.getAccumulatedFees(tkn.address);
+            expect(af).to.eq(vc[i++]);
+
+            const atb = await s.availableForBurning(tkn.address);
+            expect(atb).to.eq(vc[i++]);
+
+            const sTokenAmt = await tkn.balanceOf(s.address);
+            const sShareAmt = await yv.balanceOf(tkn.address, s.address);
+            expect(sTokenAmt).to.eq(vc[i++]);
+            expect(sShareAmt).to.eq(vc[i++]);
+
+            const fRcvBal = await tkn.balanceOf(frcv.address);
+            expect(fRcvBal).to.eq(vc[i++]);
+        }
+
+        await stabilizer.changeFees(1000, 0, feeReceiver.address);
+
+        // Mint DAI with 10% fee and claim without withdraw
+        var mintAmount = ethers.utils.parseEther('1000'); // 1000 DAI
+        var DAIMintFee = ethers.utils.parseEther('100');
+        await setDAITokenBalance(investor, mintAmount);
+        await DAI.connect(investor).approve(stabilizer.address, mintAmount);
+        await stabilizer.connect(investor).mint(DAI.address, mintAmount);
+
+        await claimFeesCheck(
+            stabilizer,
+            DAI,
+            feeReceiver,
+            yieldVault,
+            [
+                DAIMintFee,
+                mintAmount.sub(DAIMintFee),
+                mintAmount,
+                0,
+                0
+            ]
+        );
+
+        await stabilizer.connect(pokeMe).claimFees(DAI.address);
+
+        await claimFeesCheck(
+            stabilizer,
+            DAI,
+            feeReceiver,
+            yieldVault,
+            [
+                0,
+                mintAmount.sub(DAIMintFee),
+                mintAmount.sub(DAIMintFee),
+                0,
+                DAIMintFee
+            ]
+        );
+
+        // Mint USDT with 1% fee and claim with withdraw
+        await stabilizer.changeFees(100, 0, feeReceiver.address);
+        mintAmount = BigNumber.from(100 * 10**6);
+        var USDTMintFee = BigNumber.from(10**6);
+        await setUSDTTokenBalance(investor, mintAmount);
+        await USDT.connect(investor).approve(stabilizer.address, mintAmount);
+        await stabilizer.connect(investor).mint(USDT.address, mintAmount);
+        await stabilizer.connect(pokeMe).depositToYieldFarming(USDT.address, mintAmount);
+
+        await claimFeesCheck(
+            stabilizer,
+            USDT,
+            feeReceiver,
+            yieldVault,
+            [
+                USDTMintFee,
+                mintAmount.sub(USDTMintFee),
+                0,
+                mintAmount,
+                0
+            ]
+        );
+
+        await stabilizer.connect(pokeMe).claimFees(USDT.address);
+
+        await claimFeesCheck(
+            stabilizer,
+            USDT,
+            feeReceiver,
+            yieldVault,
+            [
+                0,
+                mintAmount.sub(USDTMintFee),
+                0,
+                mintAmount.sub(USDTMintFee),
+                USDTMintFee
+            ]
+        );
+    });
 })
