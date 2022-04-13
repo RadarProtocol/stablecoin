@@ -253,8 +253,9 @@ contract ConvexCurveLPStrategy is IStrategy {
         // Get staked LP CRV token balance
         IConvex.PoolInfo memory _pid = _getPoolInfo(_token);
         uint256 _stakedLP = IConvexRewards(_pid.crvRewards).balanceOf(address(this));
+        uint256 _cBal = IERC20(_token).balanceOf(address(this));
 
-        return _stakedLP;
+        return _stakedLP + _cBal;
     }
 
     function isLiquid(address, uint256) external view override returns (bool) {
