@@ -33,3 +33,8 @@ interface ICurveCrvCvxEthPool {
 interface ICurveTricryptoPool {
     function exchange(uint256 i, uint256 j, uint256 dx, uint256 min_dy, bool use_eth) external payable;
 }
+
+interface IAvalancheCurvePool {
+    function add_liquidity(uint256[4] memory amounts, uint256 _min_mint_amount) external;
+    function add_liquidity(uint256[3] memory amounts, uint256 _min_mint_amount, bool _use_underlying) external returns (uint256);
+}
