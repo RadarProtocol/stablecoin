@@ -1,2 +1,1 @@
-[![codecov](https://codecov.io/gh/RadarProtocol/stablecoin/branch/main/graph/badge.svg?token=Bqv2nvKPY0)](https://codecov.io/gh/RadarProtocol/stablecoin)
-[![CircleCI](https://circleci.com/gh/RadarProtocol/stablecoin/tree/main.svg?style=svg)](https://circleci.com/gh/RadarProtocol/stablecoin/tree/main)
+# USDR

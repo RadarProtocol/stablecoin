@@ -178,7 +178,6 @@ describe('ConvexCurveLPStrategy', () => {
         const {
             strategy,
             crvstETH,
-            otherAddress1,
             USDRFactory
         } = await snapshot();
 

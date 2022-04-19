@@ -251,3 +251,73 @@ export const setDAITokenBalance = async (
         false
     );
 }
+
+export const setavaxDAITokenBalance = async (
+    receiver: SignerWithAddress,
+    amount: BigNumberish
+) => {
+    await manipulateLocalERC20Balance(
+        receiver,
+        "0xd586E7F844cEa2F87f50152665BCbc2C279D8d70",
+        0, // Slot for DAI.e (AVAX) token
+        receiver.address,
+        amount,
+        false
+    );
+}
+
+export const setavaxav3CRVTokenBalance = async (
+    receiver: SignerWithAddress,
+    amount: BigNumberish
+) => {
+    await manipulateLocalERC20Balance(
+        receiver,
+        "0x1337BedC9D22ecbe766dF105c9623922A27963EC",
+        2, // Slot for av3Crv (AVAX) token
+        receiver.address,
+        amount,
+        true
+    );
+}
+
+export const setavaxcrvUSDBTCETHTokenBalance = async (
+    receiver: SignerWithAddress,
+    amount: BigNumberish
+) => {
+    await manipulateLocalERC20Balance(
+        receiver,
+        "0x1daB6560494B04473A0BE3E7D83CF3Fdf3a51828",
+        7, // Slot for crvUSDBTCETH (AVAX) token
+        receiver.address,
+        amount,
+        true
+    );
+}
+
+export const setavaxCRVTokenBalance = async (
+    receiver: SignerWithAddress,
+    amount: BigNumberish
+) => {
+    await manipulateLocalERC20Balance(
+        receiver,
+        "0x47536F17F4fF30e64A96a7555826b8f9e66ec468",
+        2, // Slot for CRV (AVAX) token
+        receiver.address,
+        amount,
+        false
+    );
+}
+
+export const setavaxWAVAXTokenBalance = async (
+    receiver: SignerWithAddress,
+    amount: BigNumberish
+) => {
+    await manipulateLocalERC20Balance(
+        receiver,
+        "0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7",
+        3, // Slot for WAVAX (AVAX) token
+        receiver.address,
+        amount,
+        false
+    );
+}
