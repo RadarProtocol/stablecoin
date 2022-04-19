@@ -136,11 +136,15 @@ contract CurveLPAvalancheStrategy is IStrategy {
         _CRV2WAVAX();
         _WAVAX2DAI();
         uint256 _daiBal = IERC20(DAI).balanceOf(address(this));
-        IAvalancheCurvePool(av3CRV_POOL).add_liquidity([_daiBal, 0, 0], 0, true);
+        if (_daiBal > 0) {
+            IAvalancheCurvePool(av3CRV_POOL).add_liquidity([_daiBal, 0, 0], 0, true);
+        }
 
         if (_token == crvUSDBTCETH) {
             uint256 _lpBal = IERC20(av3CRV).balanceOf(address(this));
-            IAvalancheCurvePool(crvUSDBTCETH_POOL).add_liquidity([_lpBal, 0, 0, 0], 0);
+            if (_lpBal > 0) {
+                IAvalancheCurvePool(crvUSDBTCETH_POOL).add_liquidity([_lpBal, 0, 0], 0);
+            }
         }
 
 
@@ -187,7 +191,9 @@ contract CurveLPAvalancheStrategy is IStrategy {
 
     function _deposit(address _token) internal {
         uint256 _bal = IERC20(_token).balanceOf(address(this));
-        ICurveFi_Gauge(_getGauge(_token)).deposit(_bal);
+        if (_bal > 0) {
+            ICurveFi_Gauge(_getGauge(_token)).deposit(_bal);
+        }
     }
 
     function _getGauge(address _token) internal pure returns (address) {
@@ -207,7 +213,7 @@ contract CurveLPAvalancheStrategy is IStrategy {
         IERC20(_token).safeApprove(_gauge, MAX_UINT);
     }
 
-    function _stoken(address _token) internal view returns (bool) {
+    function _stoken(address _token) internal pure returns (bool) {
         return (_getGauge(_token) != address(0));
     }
 
