@@ -34,6 +34,7 @@ contract BENQIStrategy is IStrategy {
     using SafeERC20 for IERC20;
 
     uint256 constant MAX_UINT = 2**256 - 1;
+    uint256 constant DUST = 10**15;
 
     mapping(address => address) private benqiTokens;
     address private yieldVault;
@@ -61,10 +62,12 @@ contract BENQIStrategy is IStrategy {
     }
 
     constructor(
+        address _yv,
         address[] memory _tokens,
         address[] memory _bTokens
     ) {
         require(_tokens.length == _bTokens.length, "Invalid Data");
+        yieldVault = _yv;
         for(uint8 i = 0; i < _tokens.length; i++) {
             benqiTokens[_tokens[i]] = _bTokens[i];
             _doApprove(_tokens[i], _bTokens[i], false);
@@ -148,7 +151,7 @@ contract BENQIStrategy is IStrategy {
 
     function _QI2AVAX() internal {
         uint256 _qiBal = IERC20(QI).balanceOf(address(this));
-        if (_qiBal > 0) {
+        if (_qiBal > DUST) {
             address[] memory _path = new address[](2);
             _path[0] = QI;
             _path[1] = WAVAX;
@@ -164,7 +167,7 @@ contract BENQIStrategy is IStrategy {
     }
 
     function _AVAX2TOKEN(address _token) internal {
-        if (address(this).balance > 0) {
+        if (address(this).balance > DUST) {
             address[] memory _path = new address[](2);
             _path[0] = WAVAX;
             _path[1] = _token;
@@ -223,7 +226,7 @@ contract BENQIStrategy is IStrategy {
         return true;
     }
 
-    function invested(address _token) external view override returns (uint256) {
+    function invested(address _token) external view override requireSupportedToken(_token) returns (uint256) {
         uint256 _myBal = IERC20(_token).balanceOf(address(this));
         uint256 _bBal = IERC20(benqiTokens[_token]).balanceOf(address(this));
         uint256 _ers = IBenqiToken(benqiTokens[_token]).exchangeRateStored();

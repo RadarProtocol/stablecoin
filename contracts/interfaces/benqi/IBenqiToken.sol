@@ -12,7 +12,7 @@ interface IBenqiToken {
 }
 
 interface IBenqiAvax {
-    function mint() external payable returns (uint);
+    function mint() external payable;
 
     function redeem(uint redeemTokens) external returns (uint);
 

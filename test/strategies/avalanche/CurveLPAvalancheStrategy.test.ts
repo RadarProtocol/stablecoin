@@ -1,7 +1,6 @@
 import { ethers, network } from "hardhat";
 import { expect } from "chai";
 import { setavaxav3CRVTokenBalance, setavaxCRVTokenBalance, setavaxcrvUSDBTCETHTokenBalance, setavaxDAITokenBalance, setavaxWAVAXTokenBalance } from "../../swappers/utils/USDRCurve";
-import { CurveLPAvalancheStrategy } from "../../../typechain/CurveLPAvalancheStrategy";
 import { LickHitter } from "../../../typechain";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
