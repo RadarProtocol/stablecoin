@@ -58,7 +58,7 @@ contract MockStrategy is IStrategy {
         return investor;
     }
 
-    function shouldHarvest(address) external view override returns (bool) {
+    function shouldHarvest(address) external pure override returns (bool) {
         return true;
     }
 }

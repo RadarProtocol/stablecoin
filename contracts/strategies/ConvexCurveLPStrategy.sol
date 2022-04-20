@@ -258,7 +258,7 @@ contract ConvexCurveLPStrategy is IStrategy {
         return _stakedLP + _cBal;
     }
 
-    function isLiquid(address, uint256) external view override returns (bool) {
+    function isLiquid(address, uint256) external pure override returns (bool) {
         // This strategy is always liquid
         return true;
     }

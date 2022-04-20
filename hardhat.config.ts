@@ -63,6 +63,10 @@ const config: HardhatUserConfig = {
         blockNumber: 14303425,
         url: node('ethereum'),
       },
+      // forking: {
+      //   blockNumber: 13669970,
+      //   url: node('avaxc')
+      // },
       gas: 9500000,
       gasMultiplier: 1.1,
       ...(process.env.COVERAGE && {

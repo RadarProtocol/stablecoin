@@ -321,3 +321,17 @@ export const setavaxWAVAXTokenBalance = async (
         false
     );
 }
+
+export const setavaxUSDTTokenBalance = async (
+    receiver: SignerWithAddress,
+    amount: BigNumberish
+) => {
+    await manipulateLocalERC20Balance(
+        receiver,
+        "0xc7198437980c041c805a1edcba50c1ce5db95118",
+        0, // Slot for USDT (AVAX) token
+        receiver.address,
+        amount,
+        false
+    );
+}

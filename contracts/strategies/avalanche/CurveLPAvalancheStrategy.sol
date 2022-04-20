@@ -223,11 +223,11 @@ contract CurveLPAvalancheStrategy is IStrategy {
         return yieldVault;
     }
 
-    function getIsSupportedToken(address _token) external view override returns (bool) {
+    function getIsSupportedToken(address _token) external pure override returns (bool) {
         return _stoken(_token);
     }
 
-    function isLiquid(address, uint256) external view override returns (bool) {
+    function isLiquid(address, uint256) external pure override returns (bool) {
         // This strategy is always liquid
         return true;
     }
