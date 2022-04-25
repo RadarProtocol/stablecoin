@@ -62,6 +62,7 @@ contract AvaxSwapper is ISwapper, ILiquidator {
         IERC20(WAVAX).safeApprove(JOE_ROUTER, MAX_UINT);
         IERC20(USDT).safeApprove(av3Crv_POOL, MAX_UINT);
         IERC20(av3Crv).safeApprove(_curveUsdrPool, MAX_UINT);
+        IERC20(_usdr).safeApprove(_yv, MAX_UINT);
     }
 
     // Swap USDR to wAVAX
