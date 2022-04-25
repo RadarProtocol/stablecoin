@@ -56,6 +56,56 @@ export const deployUSDR3PoolCurveFactory = async (
     return USDRPool;
 };
 
+export const deployUSDR3PoolCurveFactoryAvalanche = async (
+    deployer: SignerWithAddress,
+    USDR: RadarUSD,
+    POOL3: any,
+    fee: any
+) => {
+    const curveFactoryAddress = "0xb17b674D9c5CB2e441F8e196a2f048A81355d031";
+    const DPI = new ethers.utils.Interface(
+        JSON.parse(JSON.stringify(CurvePoolFactoryABI))
+    );
+
+    const curveFactory = new ethers.Contract(
+        curveFactoryAddress,
+        DPI,
+        deployer
+    );
+
+
+    const USDRPoolTx = await curveFactory.deploy_metapool(
+        "0x7f90122BF0700F9E7e1F688fe926940E8839F353", // av3Crv
+        "USDR av3Crv",
+        "USDRav",
+        USDR.address,
+        500,
+        fee
+    );
+    const rc = await USDRPoolTx.wait();
+    
+    const pool_count = await curveFactory.pool_count();
+    const USDRPoolAddress = await curveFactory.pool_list(pool_count-1);
+
+    const ICurvePoolInterface = new ethers.utils.Interface([
+        "function add_liquidity(uint256[2] memory amounts, uint256 _min_mint_amount) external",
+        "function coins(uint256) external view returns (address)",
+        "function exchange(int128 i, int128 j, uint256 dx, uint256 min_dy, address receiver) external returns (uint256)"
+    ]);
+    const USDRPool = new ethers.Contract(
+        USDRPoolAddress,
+        ICurvePoolInterface,
+        deployer
+    );
+
+    const coin0 = await USDRPool.coins(0);
+    const coin1 = await USDRPool.coins(1);
+    expect(coin0).to.eq(USDR.address);
+    expect(coin1).to.eq(POOL3.address);
+
+    return USDRPool;
+};
+
 export const set3PoolTokenBalance = async (
     receiver: SignerWithAddress,
     amount: BigNumberish

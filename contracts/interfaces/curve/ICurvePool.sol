@@ -38,3 +38,8 @@ interface IAvalancheCurvePool {
     function add_liquidity(uint256[3] memory amounts, uint256 _min_mint_amount) external;
     function add_liquidity(uint256[3] memory amounts, uint256 _min_mint_amount, bool _use_underlying) external returns (uint256);
 }
+
+interface IAvaxAv3CrvPool {
+    function remove_liquidity_one_coin(uint256 _ta, int128 i, uint256 _minAM, bool _use_underlying) external returns (uint256);
+    function add_liquidity(uint256[3] memory amounts, uint256 _min_mint_amount, bool _use_underlying) external returns (uint256);
+}
