@@ -25,6 +25,7 @@ import "./../interfaces/IOracle.sol";
 import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import "./../interfaces/yearn/IYearnVaultV2.sol";
 import "./../interfaces/curve/ICurvePool.sol";
+import "./../interfaces/benqi/IBenqiStakedAvax.sol";
 
 /// @title LendingOracleAggregator
 /// @author Radar Global (tudor@radar.global)
@@ -36,7 +37,8 @@ contract LendingOracleAggregator is IOracle {
         ChainlinkDirect,
         ChainlinkETH,
         ChainlinkYearnUnderlying,
-        CurveLPVirtualPricePeggedAssets
+        CurveLPVirtualPricePeggedAssets,
+        AvalancheBENQIsAvax
     }
 
     mapping(address => address) private feeds;
@@ -77,7 +79,7 @@ contract LendingOracleAggregator is IOracle {
             feeds[_token] = _feeds[i];
             feedTypes[_token] = _feedTypes[i];
             feedDecimals[_token] = _feedDecimals[i];
-            if (_feedTypes[i] == FeedType.CurveLPVirtualPricePeggedAssets) {
+            if (_feedTypes[i] == FeedType.CurveLPVirtualPricePeggedAssets || _feedTypes[i] == FeedType.AvalancheBENQIsAvax) {
                 oracle_metadata[_token] = _oracleMetadata[i];
             }
             emit FeedModified(_token, _feeds[i], _feedTypes[i], _feedDecimals[i]);
@@ -146,6 +148,14 @@ contract LendingOracleAggregator is IOracle {
             uint256 _underlyingPrice = _getUSDPrice(_underlyingAsset);
 
             return (_underlyingPrice * _virtualPrice) / (10**18);
+        } else if(_ft == FeedType.AvalancheBENQIsAvax) {
+            (address _avax) = abi.decode(oracle_metadata[_token], (address));
+            uint256 _avaxPrice = _getUSDPrice(_avax);
+
+            uint256 _totalSupply = IBenqiStakedAvax(_feed).totalSupply();
+            uint256 _totalPooledAvax = IBenqiStakedAvax(_feed).totalPooledAvax();
+
+            return (_avaxPrice * _totalPooledAvax) / _totalSupply;
         } else {
             revert("Dangerous Call");
         }
