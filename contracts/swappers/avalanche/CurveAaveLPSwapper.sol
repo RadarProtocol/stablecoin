@@ -27,84 +27,57 @@ import "./../../interfaces/ISwapper.sol";
 import "./../../interfaces/ILiquidator.sol";
 import "./../../interfaces/curve/ICurvePool.sol";
 import "./../../interfaces/ILickHitter.sol";
-import "./../../interfaces/traderjoe/IJoeRouter02.sol";
 
-contract BenqiStakedAvaxSwapper is ISwapper, ILiquidator {
+contract CurveAaveLPSwapper is ISwapper, ILiquidator {
     using SafeERC20 for IERC20;
 
     uint256 constant MAX_UINT = 2**256 - 1;
 
-    address private yieldVault;
+    address private immutable yieldVault;
 
     address private immutable USDR;
     address private immutable CURVE_USDR_av3Crv_POOL;
 
-    address private constant SAVAX = 0x2b2C81e08f1Af8835a78Bb2A90AE924ACE0eA4bE;
-    address private constant JOE_ROUTER = 0x60aE616a2155Ee3d9A68541Ba4544862310933d4;
-    address private constant USDT = 0xc7198437980c041c805A1EDcbA50c1Ce5db95118;
-    address private constant WAVAX = 0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7;
     address private constant av3Crv_POOL = 0x7f90122BF0700F9E7e1F688fe926940E8839F353;
     address private constant av3Crv = 0x1337BedC9D22ecbe766dF105c9623922A27963EC;
 
     constructor(
         address _yv,
         address _usdr,
-        address _curveUsdrPool
+        address _usdrPool
     ) {
         yieldVault = _yv;
         USDR = _usdr;
-        CURVE_USDR_av3Crv_POOL = _curveUsdrPool;
+        CURVE_USDR_av3Crv_POOL = _usdrPool;
 
-        IERC20(_usdr).safeApprove(_curveUsdrPool, MAX_UINT);
-        IERC20(av3Crv).safeApprove(av3Crv_POOL, MAX_UINT);
-        IERC20(USDT).safeApprove(JOE_ROUTER, MAX_UINT);
-        IERC20(SAVAX).safeApprove(_yv, MAX_UINT);
+        IERC20(_usdr).safeApprove(_usdrPool, MAX_UINT);
+        IERC20(av3Crv).safeApprove(_yv, MAX_UINT);
 
-        IERC20(SAVAX).safeApprove(JOE_ROUTER, MAX_UINT);
-        IERC20(USDT).safeApprove(av3Crv_POOL, MAX_UINT);
-        IERC20(av3Crv).safeApprove(_curveUsdrPool, MAX_UINT);
-        IERC20(_usdr).safeApprove(_yv, MAX_UINT);
+        IERC20(av3Crv).safeApprove(_usdrPool, MAX_UINT);
+        IERC20(_usdr).safeApprove(_yv,  MAX_UINT);
     }
 
     function depositHook(
         address,
         bytes calldata data
     ) external override {
-        (uint256 _minav3Crv, uint256 _minUSDT, uint256 _minsAVAX) = abi.decode(data, (uint256,uint256,uint256));
+        (uint256 _minav3Crv) = abi.decode(data, (uint256));
 
         // Swap USDR to av3Crv
         uint256 _usdrBal = IERC20(USDR).balanceOf(address(this));
         uint256 _receivedav3Crv = ICurvePool(CURVE_USDR_av3Crv_POOL).exchange(0, 1, _usdrBal, _minav3Crv, address(this));
 
-        // Swap av3Crv to USDT
-        uint256 _receivedUSDT = IAvaxAv3CrvPool(av3Crv_POOL).remove_liquidity_one_coin(_receivedav3Crv, 2, _minUSDT, true);
-
-        // Swap USDT to SAVAX
-        address[] memory _path = new address[](3);
-        _path[0] = USDT;
-        _path[1] = WAVAX;
-        _path[2] = SAVAX;
-        
-        IJoeRouter02(JOE_ROUTER).swapExactTokensForTokens(
-            _receivedUSDT,
-            _minsAVAX,
-            _path,
-            address(this),
-            block.timestamp + 1
-        );
-
         // Deposit to LickHitter
-        uint256 _sAVAXBal = IERC20(SAVAX).balanceOf(address(this));
-        ILickHitter(yieldVault).deposit(SAVAX, msg.sender, _sAVAXBal);
+        ILickHitter(yieldVault).deposit(av3Crv, msg.sender, _receivedav3Crv);
     }
 
     function repayHook(
         address,
          bytes calldata data
     ) external override {
-        (uint256 _minUSDT, uint256 _minav3Crv, uint256 _minUSDR) = abi.decode(data, (uint256,uint256,uint256));
+        (uint256 _minUSDR) = abi.decode(data, (uint256));
 
-        _swapsAVAX2USDR(_minUSDT, _minav3Crv, _minUSDR);
+        _swapav3Crv2USDR(_minUSDR);
 
         // Deposit to LickHitter
         uint256 _usdrBal = IERC20(USDR).balanceOf(address(this));
@@ -118,9 +91,9 @@ contract BenqiStakedAvaxSwapper is ISwapper, ILiquidator {
         uint256,
         bytes calldata data
     ) external override {
-        (uint256 _minUSDT, uint256 _minav3Crv, uint256 _minUSDR) = abi.decode(data, (uint256,uint256,uint256));
+        (uint256 _minUSDR) = abi.decode(data, (uint256));
 
-        _swapsAVAX2USDR(_minUSDT, _minav3Crv, _minUSDR);
+        _swapav3Crv2USDR(_minUSDR);
 
         ILickHitter(yieldVault).deposit(USDR, msg.sender, _repayAmount);
 
@@ -129,27 +102,9 @@ contract BenqiStakedAvaxSwapper is ISwapper, ILiquidator {
         IERC20(USDR).transfer(_initiator, _usdrBal);
     }
 
-    function _swapsAVAX2USDR(uint256 _minUSDT, uint256 _minav3Crv, uint256 _minUSDR) internal {
-        // Swap sAVAX to USDT
-        uint256 _sAVAXBal = IERC20(SAVAX).balanceOf(address(this));
-        address[] memory _path = new address[](3);
-        _path[0] = SAVAX;
-        _path[1] = WAVAX;
-        _path[2] = USDT;
-        
-        IJoeRouter02(JOE_ROUTER).swapExactTokensForTokens(
-            _sAVAXBal,
-            _minUSDT,
-            _path,
-            address(this),
-            block.timestamp + 1
-        );
-
-        // Swap USDT to av3Crv
-        uint256 _usdtBal = IERC20(USDT).balanceOf(address(this));
-        uint256 _receivedav3Crv = IAvaxAv3CrvPool(av3Crv_POOL).add_liquidity([0, 0, _usdtBal], _minav3Crv, true);
-
+    function _swapav3Crv2USDR(uint256 _minUSDR) internal {
         // Swap av3Crv to USDR
-        ICurvePool(CURVE_USDR_av3Crv_POOL).exchange(1, 0, _receivedav3Crv, _minUSDR, address(this));
+        uint256 _av3CrvBal = IERC20(av3Crv).balanceOf(address(this));
+        ICurvePool(CURVE_USDR_av3Crv_POOL).exchange(1, 0, _av3CrvBal, _minUSDR, address(this));
     }
 }
