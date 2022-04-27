@@ -65,10 +65,11 @@ contract CurveAaveLPSwapper is ISwapper, ILiquidator {
 
         // Swap USDR to av3Crv
         uint256 _usdrBal = IERC20(USDR).balanceOf(address(this));
-        uint256 _receivedav3Crv = ICurvePool(CURVE_USDR_av3Crv_POOL).exchange(0, 1, _usdrBal, _minav3Crv, address(this));
+        ICurvePool(CURVE_USDR_av3Crv_POOL).exchange(0, 1, _usdrBal, _minav3Crv, address(this));
 
         // Deposit to LickHitter
-        ILickHitter(yieldVault).deposit(av3Crv, msg.sender, _receivedav3Crv);
+        uint256 _avBal = IERC20(av3Crv).balanceOf(address(this));
+        ILickHitter(yieldVault).deposit(av3Crv, msg.sender, _avBal);
     }
 
     function repayHook(
