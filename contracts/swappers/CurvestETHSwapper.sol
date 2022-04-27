@@ -100,9 +100,10 @@ contract CurvestETHSwapper is ISwapper, ILiquidator {
 
         // Swap USDR to USDC
         uint256 _usdrBal = IERC20(USDR).balanceOf(address(this));
-        uint256 _receivedUSDC = ICurvePool(CURVE_USDR_3POOL).exchange_underlying(0, 2, _usdrBal, _minUSDC, address(this));
+        ICurvePool(CURVE_USDR_3POOL).exchange_underlying(0, 2, _usdrBal, _minUSDC, address(this));
 
         // Swap USDC to WETH
+        uint256 _receivedUSDC = IERC20(USDC).balanceOf(address(this));
         ISwapRouter.ExactInputParams memory _uniswapParams = ISwapRouter.ExactInputParams({
             path: abi.encodePacked(
                 USDC,
@@ -115,9 +116,10 @@ contract CurvestETHSwapper is ISwapper, ILiquidator {
             amountIn: _receivedUSDC,
             amountOutMinimum: _minWETH
         });
-        uint256 _receivedWETH = ISwapRouter(UNISWAPV3_ROUTER).exactInput(_uniswapParams);
+        ISwapRouter(UNISWAPV3_ROUTER).exactInput(_uniswapParams);
 
         // Swap WETH to ETH
+        uint256 _receivedWETH = IERC20(WETH).balanceOf(address(this));
         IWETH9(WETH).withdraw(_receivedWETH);
 
         // Swap ETH to crvstETH
@@ -184,9 +186,10 @@ contract CurvestETHSwapper is ISwapper, ILiquidator {
             amountIn: _wethBal,
             amountOutMinimum: _minUSDC
         });
-        uint256 _receivedUSDC = ISwapRouter(UNISWAPV3_ROUTER).exactInput(_uniswapParams);
+        ISwapRouter(UNISWAPV3_ROUTER).exactInput(_uniswapParams);
 
         // Swap USDC to USDR
+        uint256 _receivedUSDC = IERC20(USDC).balanceOf(address(this));
         ICurvePool(CURVE_USDR_3POOL).exchange_underlying(2, 0, _receivedUSDC, _minUSDR, address(this));
     }
 

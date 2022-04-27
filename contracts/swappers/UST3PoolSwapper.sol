@@ -91,9 +91,10 @@ contract UST3PoolSwapper is ISwapper, ILiquidator {
 
         // Swap USDR to 3pool
         uint256 _usdrBal = IERC20(USDR).balanceOf(address(this));
-        uint256 _received3Pool = ICurvePool(CURVE_USDR_3POOL).exchange(0, 1, _usdrBal, _min3PoolReceive, address(this));
+        ICurvePool(CURVE_USDR_3POOL).exchange(0, 1, _usdrBal, _min3PoolReceive, address(this));
 
         // Swap 3pool to UST
+        uint256 _received3Pool = IERC20(CURVE_3POOL_TOKEN).balanceOf(address(this));
         ICurvePool(CURVE_UST_3POOL).exchange(1, 0, _received3Pool, _minUSTReceive, address(this));
 
         // Deposit to LickHitter
@@ -137,9 +138,10 @@ contract UST3PoolSwapper is ISwapper, ILiquidator {
     function _swapUST2USDR(uint256 _min3Pool, uint256 _minUSDR) internal {
         // Swap UST to 3Pool
         uint256 _ustBal = IERC20(UST).balanceOf(address(this));
-        uint256 _received3Pool = ICurvePool(CURVE_UST_3POOL).exchange(0, 1, _ustBal, _min3Pool, address(this));
+        ICurvePool(CURVE_UST_3POOL).exchange(0, 1, _ustBal, _min3Pool, address(this));
 
         // Swap 3Pool to USDR
+        uint256 _received3Pool = IERC20(CURVE_3POOL_TOKEN).balanceOf(address(this));
         ICurvePool(CURVE_USDR_3POOL).exchange(1, 0, _received3Pool, _minUSDR, address(this));
     }
 }

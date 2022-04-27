@@ -74,12 +74,14 @@ contract BenqiStakedAvaxSwapper is ISwapper, ILiquidator {
 
         // Swap USDR to av3Crv
         uint256 _usdrBal = IERC20(USDR).balanceOf(address(this));
-        uint256 _receivedav3Crv = ICurvePool(CURVE_USDR_av3Crv_POOL).exchange(0, 1, _usdrBal, _minav3Crv, address(this));
+        ICurvePool(CURVE_USDR_av3Crv_POOL).exchange(0, 1, _usdrBal, _minav3Crv, address(this));
 
         // Swap av3Crv to USDT
-        uint256 _receivedUSDT = IAvaxAv3CrvPool(av3Crv_POOL).remove_liquidity_one_coin(_receivedav3Crv, 2, _minUSDT, true);
+        uint256 _receivedav3Crv = IERC20(av3Crv).balanceOf(address(this));
+        IAvaxAv3CrvPool(av3Crv_POOL).remove_liquidity_one_coin(_receivedav3Crv, 2, _minUSDT, true);
 
         // Swap USDT to SAVAX
+        uint256 _receivedUSDT = IERC20(USDT).balanceOf(address(this));
         address[] memory _path = new address[](3);
         _path[0] = USDT;
         _path[1] = WAVAX;
@@ -147,9 +149,10 @@ contract BenqiStakedAvaxSwapper is ISwapper, ILiquidator {
 
         // Swap USDT to av3Crv
         uint256 _usdtBal = IERC20(USDT).balanceOf(address(this));
-        uint256 _receivedav3Crv = IAvaxAv3CrvPool(av3Crv_POOL).add_liquidity([0, 0, _usdtBal], _minav3Crv, true);
+        IAvaxAv3CrvPool(av3Crv_POOL).add_liquidity([0, 0, _usdtBal], _minav3Crv, true);
 
         // Swap av3Crv to USDR
+        uint256 _receivedav3Crv = IERC20(av3Crv).balanceOf(address(this));
         ICurvePool(CURVE_USDR_av3Crv_POOL).exchange(1, 0, _receivedav3Crv, _minUSDR, address(this));
     }
 }

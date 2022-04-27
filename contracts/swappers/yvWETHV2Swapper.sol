@@ -97,9 +97,10 @@ contract YVWETHV2Swapper is ISwapper, ILiquidator {
 
         // Swap USDR to USDC
         uint256 _usdrBal = IERC20(USDR).balanceOf(address(this));
-        uint256 _receivedUSDC = ICurvePool(CURVE_USDR_3POOL).exchange_underlying(0, 2, _usdrBal, _minUSDCReceive, address(this));
+        ICurvePool(CURVE_USDR_3POOL).exchange_underlying(0, 2, _usdrBal, _minUSDCReceive, address(this));
 
         // Swap USDC to WETH
+        uint256 _receivedUSDC = IERC20(USDC).balanceOf(address(this));
         ISwapRouter.ExactInputParams memory _uniswapParams = ISwapRouter.ExactInputParams({
             path: abi.encodePacked(
                 USDC,

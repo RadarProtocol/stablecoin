@@ -104,11 +104,12 @@ contract Yearn3PoolUnderlyingSwapper is ISwapper, ILiquidator {
 
         // Swap USDR to underlying
         uint256 _usdrBal = IERC20(USDR).balanceOf(address(this));
-        uint256 _receivedUnderlying = ICurvePool(CURVE_USDR_3POOL).exchange_underlying(0, _tokenID, _usdrBal, _minUnderlyingReceive, address(this));
+        ICurvePool(CURVE_USDR_3POOL).exchange_underlying(0, _tokenID, _usdrBal, _minUnderlyingReceive, address(this));
 
         // Swap underlying to yvTOKEN
 
         // Save on SSTORE opcode, so approve is not called everytime
+        uint256 _receivedUnderlying = IERC20(_underlying).balanceOf(address(this));
         uint256 _allowance = IERC20(_underlying).allowance(address(this), _collateral);
         if (_allowance < _receivedUnderlying) {
             if (_allowance != 0) {
