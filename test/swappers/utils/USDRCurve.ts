@@ -399,3 +399,17 @@ export const setavaxSAVAXTokenBalance = async (
         false
     );
 }
+
+export const setavaxCrvTricryptoTokenBalance = async (
+    receiver: SignerWithAddress,
+    amount: BigNumberish
+) => {
+    await manipulateLocalERC20Balance(
+        receiver,
+        "0x1daB6560494B04473A0BE3E7D83CF3Fdf3a51828",
+        7, // Slot for Curve TriCrypto LP (AVAX) token
+        receiver.address,
+        amount,
+        true
+    );
+}

@@ -38,8 +38,7 @@ contract CurveTricryptoLPSwapper is ISwapper, ILiquidator {
     address private immutable USDR;
     address private immutable CURVE_USDR_av3Crv_POOL;
 
-    address private constant av3Crv_POOL = 0x7f90122BF0700F9E7e1F688fe926940E8839F353;
-    address private constant DAI = 0xd586E7F844cEa2F87f50152665BCbc2C279D8d70;
+    address private constant av3Crv = 0x1337BedC9D22ecbe766dF105c9623922A27963EC;
     address private constant tricryptoPool = 0xB755B949C126C04e0348DD881a5cF55d424742B2;
     address private constant tricryptoLp = 0x1daB6560494B04473A0BE3E7D83CF3Fdf3a51828;
 
@@ -53,11 +52,11 @@ contract CurveTricryptoLPSwapper is ISwapper, ILiquidator {
         CURVE_USDR_av3Crv_POOL = _usdrPool;
 
         IERC20(_usdr).safeApprove(_usdrPool, MAX_UINT);
-        IERC20(DAI).safeApprove(tricryptoPool, MAX_UINT);
+        IERC20(av3Crv).safeApprove(tricryptoPool, MAX_UINT);
         IERC20(tricryptoLp).safeApprove(_yv, MAX_UINT);
 
         IERC20(tricryptoLp).safeApprove(tricryptoPool, MAX_UINT);
-        IERC20(DAI).safeApprove(_usdrPool,  MAX_UINT);
+        IERC20(av3Crv).safeApprove(_usdrPool,  MAX_UINT);
         IERC20(_usdr).safeApprove(_yv, MAX_UINT);
     }
 
@@ -65,15 +64,15 @@ contract CurveTricryptoLPSwapper is ISwapper, ILiquidator {
         address,
         bytes calldata data
     ) external override {
-        (uint256 _minDAI, uint256 _minTricryptoLP) = abi.decode(data, (uint256,uint256));
+        (uint256 _minav3Crv, uint256 _minTricryptoLP) = abi.decode(data, (uint256,uint256));
 
-        // Swap USDR to DAI
+        // Swap USDR to av3Crv
         uint256 _usdrBal = IERC20(USDR).balanceOf(address(this));
-        ICurvePool(CURVE_USDR_av3Crv_POOL).exchange_underlying(0, 1, _usdrBal, _minDAI, address(this));
+        ICurvePool(CURVE_USDR_av3Crv_POOL).exchange(0, 1, _usdrBal, _minav3Crv, address(this));
 
-        // Swap DAI to TriCryptoLP
-        uint256 _daiBal = IERC20(DAI).balanceOf(address(this));
-        ICurvePool(tricryptoPool).add_liquidity([_daiBal, 0, 0, 0, 0], _minTricryptoLP);
+        // Swap av3Crv to TriCryptoLP
+        uint256 _avBal = IERC20(av3Crv).balanceOf(address(this));
+        ICurvePool(tricryptoPool).add_liquidity([_avBal, 0, 0], _minTricryptoLP);
 
         // Deposit to LickHitter
         uint256 _lpBal = IERC20(tricryptoLp).balanceOf(address(this));
@@ -82,11 +81,11 @@ contract CurveTricryptoLPSwapper is ISwapper, ILiquidator {
 
     function repayHook(
         address,
-         bytes calldata data
+        bytes calldata data
     ) external override {
-        (uint256 _minDAI, uint256 _minUSDR) = abi.decode(data, (uint256,uint256));
+        (uint256 _minav3Crv, uint256 _minUSDR) = abi.decode(data, (uint256,uint256));
 
-        _swapTricryptoLP2USDR(_minDAI, _minUSDR);
+        _swapTricryptoLP2USDR(_minav3Crv, _minUSDR);
 
         // Deposit to LickHitter
         uint256 _usdrBal = IERC20(USDR).balanceOf(address(this));
@@ -100,9 +99,9 @@ contract CurveTricryptoLPSwapper is ISwapper, ILiquidator {
         uint256,
         bytes calldata data
     ) external override {
-        (uint256 _minDAI, uint256 _minUSDR) = abi.decode(data, (uint256,uint256));
+        (uint256 _minav3Crv, uint256 _minUSDR) = abi.decode(data, (uint256,uint256));
 
-        _swapTricryptoLP2USDR(_minDAI, _minUSDR);
+        _swapTricryptoLP2USDR(_minav3Crv, _minUSDR);
 
         ILickHitter(yieldVault).deposit(USDR, msg.sender, _repayAmount);
 
@@ -111,11 +110,11 @@ contract CurveTricryptoLPSwapper is ISwapper, ILiquidator {
         IERC20(USDR).transfer(_initiator, _usdrBal);
     }
 
-    function _swapTricryptoLP2USDR(uint256 _minDAI, uint256 _minUSDR) internal {
+    function _swapTricryptoLP2USDR(uint256 _minav3Crv, uint256 _minUSDR) internal {
         uint256 _lpBal = IERC20(tricryptoLp).balanceOf(address(this));
-        ICurvePool(tricryptoPool).remove_liquidity_one_coin(_lpBal, 0, _minDAI);
+        IAvaxV2Pool(tricryptoPool).remove_liquidity_one_coin(_lpBal, 0, _minav3Crv);
 
-        uint256 _daiBal = IERC20(DAI).balanceOf(address(this));
-        ICurvePool(CURVE_USDR_av3Crv_POOL).exchange_underlying(1, 0, _daiBal, _minUSDR, address(this));
+        uint256 _avBal = IERC20(av3Crv).balanceOf(address(this));
+        ICurvePool(CURVE_USDR_av3Crv_POOL).exchange(1, 0, _avBal, _minUSDR, address(this));
     }
 }
