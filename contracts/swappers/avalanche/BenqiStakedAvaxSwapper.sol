@@ -118,7 +118,7 @@ contract BenqiStakedAvaxSwapper is ISwapper, ILiquidator {
         uint256,
         bytes calldata data
     ) external override {
-         (uint256 _minUSDT, uint256 _minav3Crv, uint256 _minUSDR) = abi.decode(data, (uint256,uint256,uint256));
+        (uint256 _minUSDT, uint256 _minav3Crv, uint256 _minUSDR) = abi.decode(data, (uint256,uint256,uint256));
 
         _swapsAVAX2USDR(_minUSDT, _minav3Crv, _minUSDR);
 
