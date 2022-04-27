@@ -103,7 +103,7 @@ const withdrawChecks = async (
     expect(userBal).to.eq(vc[i++]);
 }
 
-describe('CurveLPAvalancheStrategy', async () => {
+describe('Avalanche: CurveLPAvalancheStrategy', async () => {
     it("Initial State Getters", async () => {
         const {
             yieldVault,

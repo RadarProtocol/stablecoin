@@ -98,7 +98,7 @@ const snapshot = async () => {
     }
 }
 
-describe("BENQIStrategy", () => {
+describe("Avalanche: BENQIStrategy", () => {
     it("Initial State Getters", async () => {
         const {
             yieldVault,
