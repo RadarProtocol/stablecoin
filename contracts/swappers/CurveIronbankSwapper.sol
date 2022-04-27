@@ -91,9 +91,10 @@ contract CurveIronbankSwapper is ISwapper, ILiquidator {
 
         // Swap USDR to USDC
         uint256 _usdrBal = IERC20(USDR).balanceOf(address(this));
-        uint256 _receivedUSDC = ICurvePool(CURVE_USDR_3POOL).exchange_underlying(0, 2, _usdrBal, _minUSDC, address(this));
+        ICurvePool(CURVE_USDR_3POOL).exchange_underlying(0, 2, _usdrBal, _minUSDC, address(this));
 
         // Swap USDC to crvIB
+        uint256 _receivedUSDC = IERC20(USDC).balanceOf(address(this));
         ICurvePool(CURVE_IRONBANK_3POOL).add_liquidity([0, _receivedUSDC, 0], _mincrvIB, true);
 
         // Deposit to LickHitter

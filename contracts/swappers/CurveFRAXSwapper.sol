@@ -90,9 +90,10 @@ contract CurveFRAXSwapper is ISwapper, ILiquidator {
 
         // Swap USDR to 3pool
         uint256 _usdrBal = IERC20(USDR).balanceOf(address(this));
-        uint256 _received3Pool = ICurvePool(CURVE_USDR_3POOL).exchange(0, 1, _usdrBal, _min3Pool, address(this));
+        ICurvePool(CURVE_USDR_3POOL).exchange(0, 1, _usdrBal, _min3Pool, address(this));
 
         // Swap 3pool to crvFRAX
+        uint256 _received3Pool = IERC20(CURVE_3POOL_TOKEN).balanceOf(address(this));
         ICurvePool(CURVE_FRAX_3POOL).add_liquidity([0, _received3Pool], _mincrvFRAX);
 
         // Deposit to LickHitter
