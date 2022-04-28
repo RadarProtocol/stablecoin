@@ -82,7 +82,7 @@ contract CurveTricryptoUnderlyingSwapper is ISwapper, ILiquidator {
 
         // Swap av3Crv to avAsset
         uint256 _avBal = IERC20(av3Crv).balanceOf(address(this));
-        ICurvePool(tricryptoPOOL).exchange(0, _getTokenId(_collateral), _avBal, _minAsset, address(this));
+        ICurvePool(tricryptoPOOL).exchange(0, _getTokenId(_collateral), _avBal, _minAsset);
 
         // Swap avAsset to Asset
         ILendingPool(AAVE_LENDING_POOL).withdraw(_collateral, MAX_UINT, address(this));
@@ -130,18 +130,18 @@ contract CurveTricryptoUnderlyingSwapper is ISwapper, ILiquidator {
 
         // Swap avAsset to av3Crv
         uint256 _avBal = IERC20(_toggleAaveUnderlyingAsset(_collateral)).balanceOf(address(this));
-        ICurvePool(tricryptoPOOL).exchange(_getTokenId(_collateral), 0, _avBal, _minav3Crv, address(this));
+        ICurvePool(tricryptoPOOL).exchange(_getTokenId(_collateral), 0, _avBal, _minav3Crv);
 
         // Swap av3Crv to USDR
         uint256 _av3Bal = IERC20(av3Crv).balanceOf(address(this));
         ICurvePool(CURVE_USDR_av3Crv_POOL).exchange(1, 0, _av3Bal, _minUSDR, address(this));
     }
 
-    function _getTokenId(address _token) internal pure returns (int128) {
+    function _getTokenId(address _token) internal pure returns (uint256) {
         if (_token == wETH) {
-            return 1;
-        } else if (_token == wBTC) {
             return 2;
+        } else if (_token == wBTC) {
+            return 1;
         } else {
             return 100; // error
         }
