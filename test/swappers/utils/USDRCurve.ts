@@ -413,3 +413,17 @@ export const setavaxCrvTricryptoTokenBalance = async (
         true
     );
 }
+
+export const setavaxUSDCTokenBalance = async (
+    receiver: SignerWithAddress,
+    amount: BigNumberish
+) => {
+    await manipulateLocalERC20Balance(
+        receiver,
+        "0xa7d7079b0fead91f3e65f86e8915cb59c1a4c664",
+        0, // Slot for USDC (AVAX) token
+        receiver.address,
+        amount,
+        false
+    );
+}
