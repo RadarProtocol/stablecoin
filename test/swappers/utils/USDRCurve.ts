@@ -427,3 +427,31 @@ export const setavaxUSDCTokenBalance = async (
         false
     );
 }
+
+export const setavaxwETHTokenBalance = async (
+    receiver: SignerWithAddress,
+    amount: BigNumberish
+) => {
+    await manipulateLocalERC20Balance(
+        receiver,
+        "0x49d5c2bdffac6ce2bfdb6640f4f80f226bc10bab",
+        0, // Slot for wETH (AVAX) token
+        receiver.address,
+        amount,
+        false
+    );
+}
+
+export const setavaxwBTCTokenBalance = async (
+    receiver: SignerWithAddress,
+    amount: BigNumberish
+) => {
+    await manipulateLocalERC20Balance(
+        receiver,
+        "0x50b7545627a5162F82A992c33b87aDc75187B218",
+        0, // Slot for wBTC (AVAX) token
+        receiver.address,
+        amount,
+        false
+    );
+}
