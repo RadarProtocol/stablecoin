@@ -62,6 +62,7 @@ contract CurveAaveUnderlyingSwapper is ISwapper, ILiquidator {
         IERC20(DAI).safeApprove(av3Crv_POOL, MAX_UINT);
         IERC20(USDC).safeApprove(av3Crv_POOL, MAX_UINT);
         IERC20(USDT).safeApprove(av3Crv_POOL, MAX_UINT);
+        IERC20(av3Crv).safeApprove(_usdrPool, MAX_UINT);
         IERC20(_usdr).safeApprove(_yv, MAX_UINT);
     }
 
@@ -69,11 +70,15 @@ contract CurveAaveUnderlyingSwapper is ISwapper, ILiquidator {
         address _collateral,
         bytes calldata data
     ) external override {
-        (uint256 _minAsset) = abi.decode(data, (uint256));
+        (uint256 _minav3Crv, uint256 _minAsset) = abi.decode(data, (uint256,uint256));
 
-        // Swap USDR to asset
+        // Swap USDR to av3Crv
         uint256 _usdrBal = IERC20(USDR).balanceOf(address(this));
-        ICurvePool(CURVE_USDR_av3Crv_POOL).exchange_underlying(0, _getTokenId(_collateral), _usdrBal, _minAsset);
+        ICurvePool(CURVE_USDR_av3Crv_POOL).exchange(0, 1, _usdrBal, _minav3Crv, address(this));
+
+        // Swap av3Crv to asset
+        uint256 _av3CrvBal = IERC20(av3Crv).balanceOf(address(this));
+        ICurvePool(av3Crv_POOL).remove_liquidity_one_coin(_av3CrvBal, _getTokenId(_collateral), _minAsset, true);
 
         // Deposit to LickHitter
         uint256 _colBal = IERC20(_collateral).balanceOf(address(this));
@@ -84,9 +89,9 @@ contract CurveAaveUnderlyingSwapper is ISwapper, ILiquidator {
         address _collateral,
         bytes calldata data
     ) external override {
-        (uint256 _minUSDR) = abi.decode(data, (uint256));
+        (uint256 _minav3Crv, uint256 _minUSDR) = abi.decode(data, (uint256,uint256));
 
-        _swapAsset2USDR(_collateral, _minUSDR);
+        _swapAsset2USDR(_collateral, _minav3Crv, _minUSDR);
 
         // Deposit to LickHitter
         uint256 _usdrBal = IERC20(USDR).balanceOf(address(this));
@@ -100,9 +105,9 @@ contract CurveAaveUnderlyingSwapper is ISwapper, ILiquidator {
         uint256,
         bytes calldata data
     ) external override {
-        (uint256 _minUSDR) = abi.decode(data, (uint256));
+        (uint256 _minav3Crv, uint256 _minUSDR) = abi.decode(data, (uint256,uint256));
 
-        _swapAsset2USDR(_collateral, _minUSDR);
+        _swapAsset2USDR(_collateral, _minav3Crv, _minUSDR);
 
         ILickHitter(yieldVault).deposit(USDR, msg.sender, _repayAmount);
 
@@ -111,20 +116,35 @@ contract CurveAaveUnderlyingSwapper is ISwapper, ILiquidator {
         IERC20(USDR).transfer(_initiator, _usdrBal);
     }
 
-    function _swapAsset2USDR(address _token, uint256 _minUSDR) internal {
+    function _swapAsset2USDR(address _token, uint256 _minav3Crv, uint256 _minUSDR) internal {
         uint256 _assetBal = IERC20(_token).balanceOf(address(this));
-        ICurvePool(CURVE_USDR_av3Crv_POOL).exchange_underlying(_getTokenId(_token), 0, _assetBal, _minUSDR);
+        ICurvePool(av3Crv_POOL).add_liquidity(_getAmounts(_token, _assetBal), _minav3Crv, true);
+
+        uint256 _avBal = IERC20(av3Crv).balanceOf(address(this));
+        ICurvePool(CURVE_USDR_av3Crv_POOL).exchange(1, 0, _avBal, _minUSDR, address(this));
     }
 
     function _getTokenId(address _token) internal pure returns (int128) {
         if  (_token == DAI) {
-            return 1;
+            return 0;
         } else if (_token == USDC) {
-            return 2;
+            return 1;
         } else if (_token == USDT) {
-            return 3;
+            return 2;
         } else {
-            return -1; // Invalid
+            return 100; // Invalid
+        }
+    }
+
+    function _getAmounts(address _token, uint256 _bal) internal pure returns (uint256[3] memory) {
+        if  (_token == DAI) {
+            return [_bal, 0, 0];
+        } else if (_token == USDC) {
+            return [0, _bal, 0];
+        } else if (_token == USDT) {
+            return [0, 0, _bal];
+        } else {
+            return [_bal, _bal, _bal]; // Invalid
         }
     }
 }
