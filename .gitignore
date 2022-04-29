@@ -9,5 +9,6 @@ typechain
 #Hardhat files
 cache
 artifacts
+deployments
 
 yarn-error.log
