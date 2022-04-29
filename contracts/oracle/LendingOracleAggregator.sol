@@ -26,6 +26,7 @@ import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import "./../interfaces/yearn/IYearnVaultV2.sol";
 import "./../interfaces/curve/ICurvePool.sol";
 import "./../interfaces/benqi/IBenqiStakedAvax.sol";
+import "./../interfaces/benqi/IBenqiToken.sol";
 
 /// @title LendingOracleAggregator
 /// @author Radar Global (tudor@radar.global)
@@ -38,7 +39,8 @@ contract LendingOracleAggregator is IOracle {
         ChainlinkETH,
         ChainlinkYearnUnderlying,
         CurveLPVirtualPricePeggedAssets,
-        AvalancheBENQIsAvax
+        AvalancheBENQIsAvax,
+        AvalancheBENQIAsset
     }
 
     mapping(address => address) private feeds;
@@ -79,9 +81,7 @@ contract LendingOracleAggregator is IOracle {
             feeds[_token] = _feeds[i];
             feedTypes[_token] = _feedTypes[i];
             feedDecimals[_token] = _feedDecimals[i];
-            if (_feedTypes[i] == FeedType.CurveLPVirtualPricePeggedAssets || _feedTypes[i] == FeedType.AvalancheBENQIsAvax) {
-                oracle_metadata[_token] = _oracleMetadata[i];
-            }
+            oracle_metadata[_token] = _oracleMetadata[i];
             emit FeedModified(_token, _feeds[i], _feedTypes[i], _feedDecimals[i]);
         }
     }
@@ -156,6 +156,20 @@ contract LendingOracleAggregator is IOracle {
             uint256 _totalPooledAvax = IBenqiStakedAvax(_feed).totalPooledAvax();
 
             return (_avaxPrice * _totalPooledAvax) / _totalSupply;
+        } else if(_ft == FeedType.AvalancheBENQIAsset) {
+            (address _underlying, uint256 _underlyingDecimals) = abi.decode(oracle_metadata[_token], (address,uint256));
+            uint256 _underlyingPrice = _getUSDPrice(_underlying);
+
+            uint256 _benqiExchangeRate = IBenqiToken(_feed).exchangeRateStored();
+
+            uint256 _unscaledPrice = (_underlyingPrice * _benqiExchangeRate) / (10**18);
+
+            // All Benqi assets have 8 decimals
+            if (_underlyingDecimals < 8) {
+                return _unscaledPrice * (10**(8-_underlyingDecimals));
+            } else {
+                return _unscaledPrice / (10**(_underlyingDecimals-8));
+            }
         } else {
             revert("Dangerous Call");
         }
