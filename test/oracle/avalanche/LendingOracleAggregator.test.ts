@@ -37,6 +37,32 @@ describe('Avalanche: LendingOracleAggregator', () => {
 
         expect(expectedPrice).to.be.closeTo(oraclePrice, expectedPrice.div(100));
     });
+    it('av3Crv', async () => {
+        const {
+            oracle
+        } = await snapshot();
+
+        const vp = ethers.utils.parseEther('1.018127275225531');
+
+        const abiCoder = new ethers.utils.AbiCoder;
+        await oracle.editFeed(
+            "0xd586E7F844cEa2F87f50152665BCbc2C279D8d70",
+            "0x51D7180edA2260cc4F6e4EebB82FEF5c3c2B8300",
+            0,
+            8,
+            []
+        );
+        await oracle.editFeed(
+            "0x1337BedC9D22ecbe766dF105c9623922A27963EC",
+            "0x7f90122BF0700F9E7e1F688fe926940E8839F353",
+            3,
+            8,
+            abiCoder.encode(["address"], ["0xd586E7F844cEa2F87f50152665BCbc2C279D8d70"])
+        );
+
+        const oraclePrice = await oracle.getUSDPrice("0x1337BedC9D22ecbe766dF105c9623922A27963EC");
+        expect(oraclePrice).to.be.closeTo(vp, oraclePrice.div(100))
+    });
     it("Benqi Asset: USDC", async () => {
         const {
             oracle
