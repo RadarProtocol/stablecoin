@@ -12,14 +12,14 @@ const fn: DeployFunction = async function (hre) {
   const deployer = (await getSigners())[0];
   const config = await loadConfig(hre);
   
-  await deploy('RadarUSD', {
+  await deploy('LendingPair', {
       from: deployer.address,
       log: true,
       skipIfAlreadyDeployed: true
   });
 };
 
-fn.tags = ['Core', 'USDR'];
+fn.tags = ['Core', 'LendingPair'];
 fn.dependencies = ['Config'];
 fn.skip = async (hre) => {
   // Skip this on non-core deployments

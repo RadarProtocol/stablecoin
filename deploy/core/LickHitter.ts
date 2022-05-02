@@ -12,14 +12,17 @@ const fn: DeployFunction = async function (hre) {
   const deployer = (await getSigners())[0];
   const config = await loadConfig(hre);
   
-  await deploy('RadarUSD', {
+  await deploy('LickHitter', {
       from: deployer.address,
       log: true,
-      skipIfAlreadyDeployed: true
+      skipIfAlreadyDeployed: true,
+      args: [
+          config.GELATO_POKE_ME
+      ]
   });
 };
 
-fn.tags = ['Core', 'USDR'];
+fn.tags = ['Core', 'LickHitter'];
 fn.dependencies = ['Config'];
 fn.skip = async (hre) => {
   // Skip this on non-core deployments

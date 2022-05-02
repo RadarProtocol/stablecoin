@@ -22,7 +22,14 @@ export async function hasConfig(hre: HardhatRuntimeEnvironment): Promise<boolean
 export interface DeploymentConfig {
   ENABLED: boolean,
   DEPLOYMENT_TYPE: string,
-  NETWORK: Number
+  NETWORK: Number,
+  GELATO_POKE_ME: string,
+  STABILIZER_CONFIG: {
+    tokens: Array<string>,
+    mint_fee: Number,
+    burn_fee: Number,
+    fee_receiver: string
+  }
 }
 
 const fn: DeployFunction = async () => {
