@@ -142,15 +142,53 @@ const ORACLE_CONFIG = {
             metadata: abiCoder.encode(["address"], ["0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7"]) // AVAX underlying
         }
     ]
+};
+const STRATEGIES_CONFIG = {
+    AVALANCHE: {
+        BENQIStrategy: [
+            {
+                token: "0xd586E7F844cEa2F87f50152665BCbc2C279D8d70", // DAI.e
+                qiToken: "0x835866d37AFB8CB8F8334dCCdaf66cf01832Ff5D" // qDAI
+            },
+            {
+                token: "0xA7D7079b0FEaD91F3e65f86E8915Cb59c1a4C664", // USDC.e
+                qiToken: "0xBEb5d47A3f720Ec0a390d04b4d41ED7d9688bC7F" // qiUSDC
+            },
+            {
+                token: "0xc7198437980c041c805A1EDcbA50c1Ce5db95118", // USDT.e
+                qiToken: "0xc9e5999b8e75C3fEB117F6f73E664b9f3C8ca65C" // qiUSDT
+            },
+            {
+                token: "0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7", // wAVAX
+                qiToken: "0xaf2c034c764d53005cc6cbc092518112cbd652bb" // qiAVAX
+            },
+            {
+                token: "0x50b7545627a5162F82A992c33b87aDc75187B218", // wBTC
+                qiToken: "0xe194c4c5aC32a3C9ffDb358d9Bfd523a0B6d1568" // qiBTC
+            },
+            {
+                token: "0x49d5c2bdffac6ce2bfdb6640f4f80f226bc10bab", // wETH
+                qiToken: "0x334ad834cd4481bb02d09615e7c11a00579a7909" // qiETH
+            }
+        ],
+        CurveLPAvalancheStrategy: {
+            harvest_reward_token_av3Crv: "0x47536F17F4fF30e64A96a7555826b8f9e66ec468", // CRV
+            harvest_reward_token_crvUSDBTCETH: "0x47536F17F4fF30e64A96a7555826b8f9e66ec468", // CRV
+            harvest_min_reward_amount_av3Crv: ethers.utils.parseEther('250'), // 250 CRV
+            harvest_min_reward_amount_crvUSDBTCETH: ethers.utils.parseEther('250') // 250 CRV
+        }
+    }
 }
 
 const configuration: DeploymentConfig = {
     ENABLED,
     NETWORK,
+    isDevDeploy,
     DEPLOYMENT_TYPE,
     GELATO_POKE_ME,
     STABILIZER_CONFIG,
-    ORACLE_CONFIG
+    ORACLE_CONFIG,
+    STRATEGIES_CONFIG
 }
 
 const fn: DeployFunction = async (hre) => {
