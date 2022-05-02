@@ -222,12 +222,12 @@ contract LickHitter {
     // Internal Functions
 
     function _addSupportedToken(address _token, uint256 _bufferSize) internal {
-        require(!supportedTokens[_token], "Token already added");
+        if (!supportedTokens[_token]) {
+            supportedTokens[_token] = true;
+            bufferSize[_token] = _bufferSize;
 
-        supportedTokens[_token] = true;
-        bufferSize[_token] = _bufferSize;
-
-        emit TokenAdded(_token, _bufferSize);
+            emit TokenAdded(_token, _bufferSize);
+        }
     }
 
     function _deposit(address _token, address _payer, address _destination, uint256 _amount) internal returns (uint256) {

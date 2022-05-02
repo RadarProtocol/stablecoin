@@ -1,3 +1,4 @@
+import { ethers } from 'ethers';
 import { DeployFunction } from 'hardhat-deploy/types';
 
 import { loadConfig } from '../utils/config';
@@ -5,7 +6,7 @@ import { loadConfig } from '../utils/config';
 const fn: DeployFunction = async function (hre) {
 
     const {
-        deployments: { deploy, get },
+        deployments: { deploy, get, log },
         ethers: { getSigners },
     } = hre;
 
@@ -20,6 +21,22 @@ const fn: DeployFunction = async function (hre) {
           config.GELATO_POKE_ME
       ]
   });
+
+  const LHFactory = await hre.ethers.getContractFactory("LickHitter");
+  const LickHitter = await get('LickHitter');
+  const lhContract = new ethers.Contract(
+      LickHitter.address,
+      LHFactory.interface,
+      deployer
+  );
+
+  const tx = await lhContract.addSupportedTokens(
+      config.SUPPORTED_ASSETS!.map(x => x.asset),
+      config.SUPPORTED_ASSETS!.map(x => x.buffer)
+  );
+  const rc = await tx.wait();
+
+  log(`Added supported assets in tx ${rc.transactionHash}`);
 };
 
 fn.tags = ['Core', 'LickHitter'];

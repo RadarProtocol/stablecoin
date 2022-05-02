@@ -1,11 +1,11 @@
-import { ethers, utils } from 'ethers';
+import { BigNumber, ethers, utils } from 'ethers';
 import { DeployFunction } from 'hardhat-deploy/types';
 
 import { DeploymentConfig, saveConfig } from '../utils/config';
 
 // General Configuration
-const ENABLED = true; // If this config is enabled or not
-const isDevDeploy = true; // Should always be false, only true when deploying to hardhat forks
+const ENABLED = false; // If this config is enabled or not
+const isDevDeploy = false; // Should always be false, only true when deploying to hardhat forks
 const NETWORK = 43114; // Network ID of deployment
 const DEPLOYMENT_TYPE = "CORE"; // Deployment type: CORE
 
@@ -21,6 +21,40 @@ const STABILIZER_CONFIG = {
     burn_fee: 20,
     fee_receiver: "0x6d9abd331698D721fc54F5188bdeb3B500EC1182"
 };
+const SUPPORTED_ASSETS = [
+    {
+        asset: "0x1337BedC9D22ecbe766dF105c9623922A27963EC", // av3Crv
+        buffer: ethers.utils.parseEther('500')
+    },
+    {
+        asset: "0x835866d37AFB8CB8F8334dCCdaf66cf01832Ff5D", // qiDAI
+        buffer: BigNumber.from(500 * 10**8)
+    },
+    {
+        asset: "0xBEb5d47A3f720Ec0a390d04b4d41ED7d9688bC7F", // qiUSDC
+        buffer: BigNumber.from(500 * 10**8)
+    },
+    {
+        asset: "0xc9e5999b8e75C3fEB117F6f73E664b9f3C8ca65C", // qiUSDT
+        buffer: BigNumber.from(500 * 10**8)
+    },
+    {
+        asset: "0xaf2c034c764d53005cc6cbc092518112cbd652bb", // qiAVAX
+        buffer: BigNumber.from(500 * 10**8)
+    },
+    {
+        asset: "0xe194c4c5aC32a3C9ffDb358d9Bfd523a0B6d1568", // qiBTC
+        buffer: BigNumber.from(500 * 10**8)
+    },
+    {
+        asset: "0x334ad834cd4481bb02d09615e7c11a00579a7909", // qiETH
+        buffer: BigNumber.from(500 * 10**8)
+    },
+    {
+        asset: "0x2b2C81e08f1Af8835a78Bb2A90AE924ACE0eA4bE", // sAVAX
+        buffer: ethers.utils.parseEther('10')
+    }
+];
 const abiCoder = new ethers.utils.AbiCoder;
 const ORACLE_CONFIG = {
     BLOCKCHAIN_TOKEN_ORACLE: "0x0A77230d17318075983913bC2145DB16C7366156",
@@ -180,7 +214,7 @@ const STRATEGIES_CONFIG = {
     }
 }
 const CURVE_USDR_POOL = {
-    AVALANCHE_av3Crv_POOL: "0x0000000000000000000000000000000000000001" // TODO: CHANGE ME
+    AVALANCHE_av3Crv_POOL: ""
 };
 
 const configuration: DeploymentConfig = {
@@ -192,8 +226,10 @@ const configuration: DeploymentConfig = {
     STABILIZER_CONFIG,
     ORACLE_CONFIG,
     STRATEGIES_CONFIG,
-    CURVE_USDR_POOL
-}
+    CURVE_USDR_POOL,
+    SUPPORTED_ASSETS,
+    LENDING_POOLS: null
+};
 
 const fn: DeployFunction = async (hre) => {
     await saveConfig(hre, configuration);

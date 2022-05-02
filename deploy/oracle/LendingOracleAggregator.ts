@@ -13,11 +13,11 @@ const fn: DeployFunction = async function (hre) {
   const deployer = (await getSigners())[0];
   const config = await loadConfig(hre);
 
-  const tokens = config.ORACLE_CONFIG.TOKENS.map(x => x.address);
-  const feedTypes = config.ORACLE_CONFIG.TOKENS.map(x => x.feedType);
-  const feeds = config.ORACLE_CONFIG.TOKENS.map(x => x.feed);
-  const feedDecimals = config.ORACLE_CONFIG.TOKENS.map(x => x.feedDecimals);
-  const metadata = config.ORACLE_CONFIG.TOKENS.map(x => x.metadata);
+  const tokens = config.ORACLE_CONFIG!.TOKENS.map(x => x.address);
+  const feedTypes = config.ORACLE_CONFIG!.TOKENS.map(x => x.feedType);
+  const feeds = config.ORACLE_CONFIG!.TOKENS.map(x => x.feed);
+  const feedDecimals = config.ORACLE_CONFIG!.TOKENS.map(x => x.feedDecimals);
+  const metadata = config.ORACLE_CONFIG!.TOKENS.map(x => x.metadata);
   
   await deploy('LendingOracleAggregator', {
       from: deployer.address,
@@ -29,7 +29,7 @@ const fn: DeployFunction = async function (hre) {
           feeds,
           feedDecimals,
           metadata,
-          config.ORACLE_CONFIG.BLOCKCHAIN_TOKEN_ORACLE
+          config.ORACLE_CONFIG!.BLOCKCHAIN_TOKEN_ORACLE
       ]
   });
 };

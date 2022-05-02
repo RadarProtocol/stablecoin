@@ -23,7 +23,7 @@ const fn: DeployFunction = async function (hre) {
       args: [
           LickHitter.address,
           USDR.address,
-          config.CURVE_USDR_POOL.AVALANCHE_av3Crv_POOL
+          config.CURVE_USDR_POOL!.AVALANCHE_av3Crv_POOL
       ]
   });
 };

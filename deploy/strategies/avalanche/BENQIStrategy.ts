@@ -6,7 +6,7 @@ import { loadConfig } from '../../utils/config';
 const fn: DeployFunction = async function (hre) {
 
     const {
-        deployments: { deploy, get },
+        deployments: { deploy, get, log },
         ethers: { getSigners },
     } = hre;
 
@@ -14,8 +14,8 @@ const fn: DeployFunction = async function (hre) {
   const config = await loadConfig(hre);
 
   const LickHitter = await get('LickHitter');
-  const tokens = config.STRATEGIES_CONFIG.AVALANCHE.BENQIStrategy.map(x => x.token);
-  const qiTokens = config.STRATEGIES_CONFIG.AVALANCHE.BENQIStrategy.map(x => x.qiToken);
+  const tokens = config.STRATEGIES_CONFIG!.AVALANCHE.BENQIStrategy.map(x => x.token);
+  const qiTokens = config.STRATEGIES_CONFIG!.AVALANCHE.BENQIStrategy.map(x => x.qiToken);
   
   await deploy('BENQIStrategy', {
       from: deployer.address,
@@ -27,6 +27,8 @@ const fn: DeployFunction = async function (hre) {
           qiTokens
       ]
   });
+
+  log("Strategy must be added manually to LickHitter");
 };
 
 fn.tags = ['Core', 'Strategy', 'BENQIStrategy'];

@@ -23,11 +23,11 @@ const fn: DeployFunction = async function (hre) {
       skipIfAlreadyDeployed: true,
       args: [
           USDR.address,
-          config.GELATO_POKE_ME,
-          config.STABILIZER_CONFIG.tokens,
-          config.STABILIZER_CONFIG.mint_fee,
-          config.STABILIZER_CONFIG.burn_fee,
-          config.STABILIZER_CONFIG.fee_receiver,
+          config.GELATO_POKE_ME!,
+          config.STABILIZER_CONFIG!.tokens,
+          config.STABILIZER_CONFIG!.mint_fee,
+          config.STABILIZER_CONFIG!.burn_fee,
+          config.STABILIZER_CONFIG!.fee_receiver,
           LickHitter.address
       ]
   });

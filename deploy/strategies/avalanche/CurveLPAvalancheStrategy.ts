@@ -5,7 +5,7 @@ import { loadConfig } from '../../utils/config';
 const fn: DeployFunction = async function (hre) {
 
     const {
-        deployments: { deploy, get },
+        deployments: { deploy, get, log },
         ethers: { getSigners },
     } = hre;
 
@@ -13,7 +13,7 @@ const fn: DeployFunction = async function (hre) {
   const config = await loadConfig(hre);
 
   const LickHitter = await get('LickHitter');
-  const strategyConfig = config.STRATEGIES_CONFIG.AVALANCHE.CurveLPAvalancheStrategy;
+  const strategyConfig = config.STRATEGIES_CONFIG!.AVALANCHE.CurveLPAvalancheStrategy;
   
   await deploy('CurveLPAvalancheStrategy', {
       from: deployer.address,
@@ -25,6 +25,8 @@ const fn: DeployFunction = async function (hre) {
           [strategyConfig.harvest_min_reward_amount_av3Crv, strategyConfig.harvest_min_reward_amount_crvUSDBTCETH]
       ]
   });
+
+  log("Strategy must be added manually to LickHitter");
 };
 
 fn.tags = ['Core', 'Strategy', 'CurveLPAvalancheStrategy'];
