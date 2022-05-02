@@ -1,4 +1,4 @@
-import { constants, ethers } from 'ethers';
+import { BytesLike, constants, ethers } from 'ethers';
 import { HardhatRuntimeEnvironment } from 'hardhat/types';
 import { DeployFunction } from 'hardhat-deploy/types';
 
@@ -29,6 +29,16 @@ export interface DeploymentConfig {
     mint_fee: Number,
     burn_fee: Number,
     fee_receiver: string
+  },
+  ORACLE_CONFIG: {
+    BLOCKCHAIN_TOKEN_ORACLE: string,
+    TOKENS: Array<{
+      address: string,
+      feedType: number,
+      feed: string,
+      feedDecimals: number,
+      metadata: BytesLike
+    }>
   }
 }
 
