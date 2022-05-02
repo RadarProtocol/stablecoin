@@ -51,6 +51,9 @@ export interface DeploymentConfig {
         harvest_min_reward_amount_crvUSDBTCETH: BigNumberish
       }
     }
+  },
+  CURVE_USDR_POOL: {
+    AVALANCHE_av3Crv_POOL: string
   }
 }
 

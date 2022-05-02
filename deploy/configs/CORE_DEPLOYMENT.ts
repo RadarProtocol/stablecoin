@@ -179,6 +179,9 @@ const STRATEGIES_CONFIG = {
         }
     }
 }
+const CURVE_USDR_POOL = {
+    AVALANCHE_av3Crv_POOL: "0x0000000000000000000000000000000000000001" // TODO: CHANGE ME
+};
 
 const configuration: DeploymentConfig = {
     ENABLED,
@@ -188,7 +191,8 @@ const configuration: DeploymentConfig = {
     GELATO_POKE_ME,
     STABILIZER_CONFIG,
     ORACLE_CONFIG,
-    STRATEGIES_CONFIG
+    STRATEGIES_CONFIG,
+    CURVE_USDR_POOL
 }
 
 const fn: DeployFunction = async (hre) => {
