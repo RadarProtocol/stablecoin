@@ -15,7 +15,7 @@ const LENDING_POOLS = {
     USDR: "",
     LICK_HITTER: "",
     ORACLE: "",
-    FEE_RECEIVER: "",
+    FEE_RECEIVER: "0x6d9abd331698D721fc54F5188bdeb3B500EC1182",
     POOLS: [
         {
             collateral: "0x1337BedC9D22ecbe766dF105c9623922A27963EC",
