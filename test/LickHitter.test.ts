@@ -175,9 +175,10 @@ describe('LickHitter', () => {
 
         const addEvent = addTx.events![0];
 
-        await expect(lickHitter.addSupportedToken(mockToken.address, ethers.utils.parseEther("10"))).to.be.revertedWith(
-            "Token already added"
-        );
+        // Soft fail
+        // await expect(lickHitter.addSupportedToken(mockToken.address, ethers.utils.parseEther("10"))).to.be.revertedWith(
+        //     "Token already added"
+        // );
 
         const getIsSup1 = await lickHitter.getIsSupportedToken(mockToken.address);
         expect(getIsSup1).to.eq(true);
