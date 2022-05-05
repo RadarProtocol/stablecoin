@@ -570,9 +570,8 @@ contract LendingPair is ReentrancyGuard {
             return false;
         }
 
-        uint256 _collateralValue = (_collateral * exchangeRate) / (10**collateralDecimals);
         // Price has 18 decimals and stablecoin has 18 decimals
-        return ((_collateralValue * MAX_LTV) / GENERAL_DIVISOR) >= _borrowed;
+        return ((_collateral * exchangeRate * MAX_LTV) / (10**collateralDecimals * GENERAL_DIVISOR)) >= _borrowed;
     }
 
     function _deposit(uint256 _amount, address _receiver) internal {
