@@ -30,6 +30,13 @@ const fn: DeployFunction = async function (hre) {
       deployer
   );
 
+  const as = config.SUPPORTED_ASSETS!;
+  const usdr = await get("RadarUSD");
+  as.push({
+      asset: usdr.address,
+      buffer: ethers.utils.parseEther('100000')
+  })
+
   const tx = await lhContract.addSupportedTokens(
       config.SUPPORTED_ASSETS!.map(x => x.asset),
       config.SUPPORTED_ASSETS!.map(x => x.buffer)
@@ -39,7 +46,7 @@ const fn: DeployFunction = async function (hre) {
   log(`Added supported assets in tx ${rc.transactionHash}`);
 };
 
-fn.tags = ['Core', 'LickHitter'];
+fn.tags = ['Core', 'LickHitter', 'USDR'];
 fn.dependencies = ['Config'];
 fn.skip = async (hre) => {
   // Skip this on non-core deployments
