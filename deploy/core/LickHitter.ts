@@ -46,8 +46,8 @@ const fn: DeployFunction = async function (hre) {
   log(`Added supported assets in tx ${rc.transactionHash}`);
 };
 
-fn.tags = ['Core', 'LickHitter', 'USDR'];
-fn.dependencies = ['Config'];
+fn.tags = ['Core', 'LickHitter'];
+fn.dependencies = ['Config', 'USDR'];
 fn.skip = async (hre) => {
   // Skip this on non-core deployments
   const config = await loadConfig(hre);
