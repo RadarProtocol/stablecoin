@@ -7,7 +7,7 @@ import { DeploymentConfig, saveConfig } from '../utils/config';
 const ENABLED = false; // If this config is enabled or not
 const isDevDeploy = false; // Should always be false, only true when deploying to hardhat forks
 const NETWORK = 43114; // Network ID of deployment
-const DEPLOYMENT_TYPE = "LPs"; // Deployment type: CORE, LPs
+const DEPLOYMENT_TYPE = "LPs"; // Deployment type: CORE, LPs, Swappers
 
 // LPs CONFIG
 const LENDING_POOLS = {
@@ -109,9 +109,9 @@ const configuration: DeploymentConfig = {
     STABILIZER_CONFIG: null,
     ORACLE_CONFIG: null,
     STRATEGIES_CONFIG: null,
-    CURVE_USDR_POOL: null,
     LENDING_POOLS,
-    SUPPORTED_ASSETS: null
+    SUPPORTED_ASSETS: null,
+    SWAPPERS: null
 }
 
 const fn: DeployFunction = async (hre) => {

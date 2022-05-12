@@ -56,9 +56,6 @@ export interface DeploymentConfig {
       }
     }
   } | null,
-  CURVE_USDR_POOL: {
-    AVALANCHE_av3Crv_POOL: string
-  } | null,
   LENDING_POOLS: {
     MASTER: string | null,
     USDR: string | null,
@@ -75,6 +72,10 @@ export interface DeploymentConfig {
       max_ltv: Number,
       swapper_address: string
     }>
+  } | null,
+  SWAPPERS: {
+    USDRCurvePool: string,
+    swappersToDeploy: Array<string>
   } | null
 }
 

@@ -23,7 +23,7 @@ const fn: DeployFunction = async function (hre) {
       args: [
           LickHitter.address,
           USDR.address,
-          config.CURVE_USDR_POOL!.AVALANCHE_av3Crv_POOL
+          config.SWAPPERS!.USDRCurvePool
       ]
   });
 };
@@ -33,7 +33,7 @@ fn.dependencies = ['Config', 'LickHitter', 'USDR'];
 fn.skip = async (hre) => {
   // Skip this on non-core deployments or when network isn't avalanche
   const config = await loadConfig(hre);
-  return config.DEPLOYMENT_TYPE != "CORE" || (config.NETWORK !== 43114 && !config.isDevDeploy );
+  return config.DEPLOYMENT_TYPE != "Swappers" || (config.NETWORK !== 43114 && !config.isDevDeploy ) || !config.SWAPPERS.swappersToDeploy.includes("CurveTricryptoLPSwapper");
 };
 
 export default fn;

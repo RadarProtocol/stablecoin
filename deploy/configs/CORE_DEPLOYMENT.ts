@@ -7,7 +7,7 @@ import { DeploymentConfig, saveConfig } from '../utils/config';
 const ENABLED = false; // If this config is enabled or not
 const isDevDeploy = false; // Should always be false, only true when deploying to hardhat forks
 const NETWORK = 43114; // Network ID of deployment
-const DEPLOYMENT_TYPE = "CORE"; // Deployment type: CORE
+const DEPLOYMENT_TYPE = "CORE"; // Deployment type: CORE, Swappers
 
 // CORE CONFIG
 const GELATO_POKE_ME = "0x8aB6aDbC1fec4F18617C9B889F5cE7F28401B8dB";
@@ -213,9 +213,6 @@ const STRATEGIES_CONFIG = {
         }
     }
 }
-const CURVE_USDR_POOL = {
-    AVALANCHE_av3Crv_POOL: ""
-};
 
 const configuration: DeploymentConfig = {
     ENABLED,
@@ -226,9 +223,9 @@ const configuration: DeploymentConfig = {
     STABILIZER_CONFIG,
     ORACLE_CONFIG,
     STRATEGIES_CONFIG,
-    CURVE_USDR_POOL,
     SUPPORTED_ASSETS,
-    LENDING_POOLS: null
+    LENDING_POOLS: null,
+    SWAPPERS: null
 };
 
 const fn: DeployFunction = async (hre) => {
