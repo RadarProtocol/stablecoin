@@ -33,7 +33,7 @@ fn.dependencies = ['Config', 'LickHitter', 'USDR'];
 fn.skip = async (hre) => {
   // Skip this on non-core deployments or when network isn't avalanche
   const config = await loadConfig(hre);
-  return config.DEPLOYMENT_TYPE != "Swappers" || (config.NETWORK !== 43114 && !config.isDevDeploy ) || !config.SWAPPERS.swappersToDeploy.includes("BenqiStakedAvaxSwapper");
+  return config.DEPLOYMENT_TYPE != "Swappers" || (config.NETWORK !== 43114 && !config.isDevDeploy ) || !config.SWAPPERS!.swappersToDeploy.includes("BenqiStakedAvaxSwapper");
 };
 
 export default fn;
