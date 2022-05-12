@@ -599,7 +599,7 @@ contract LendingPair is ReentrancyGuard {
         accumulatedFees = accumulatedFees + _fee;
         uint256 _borrowAmount = _amount + _fee;
 
-        require(_borrowAmount <= _availableToBorrow(), "Not enough coins");
+        require(_amount <= _availableToBorrow(), "Not enough coins");
 
         borrows[msg.sender] = borrows[msg.sender] + _borrowAmount;
         totalBorrowed = totalBorrowed + _borrowAmount;
