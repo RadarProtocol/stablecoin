@@ -18,7 +18,7 @@ const SWAPPERS = {
         "CurveAaveLPSwapper",
         "BenqiStakedAvaxSwapper",
         "BenqiCurveAaveUnderlyingSwapper",
-        "BenqiCurveAaveTricryptoSwapper"
+        "BenqiCurveTricryptoUnderlyingSwapper"
     ],
     USDR: "",
     LickHitter: ""
