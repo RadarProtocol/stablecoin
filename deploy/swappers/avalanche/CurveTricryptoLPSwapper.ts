@@ -12,24 +12,21 @@ const fn: DeployFunction = async function (hre) {
 
   const deployer = (await getSigners())[0];
   const config = await loadConfig(hre);
-
-  const LickHitter = await get('LickHitter');
-  const USDR = await get('RadarUSD');
   
   await deploy('CurveTricryptoLPSwapper', {
       from: deployer.address,
       log: true,
       skipIfAlreadyDeployed: true,
       args: [
-          LickHitter.address,
-          USDR.address,
-          config.SWAPPERS!.USDRCurvePool
-      ]
+        config.SWAPPERS!.LickHitter,
+        config.SWAPPERS!.USDR,
+        config.SWAPPERS!.USDRCurvePool
+    ]
   });
 };
 
 fn.tags = ['Core', 'Swapper', 'CurveTricryptoLPSwapper'];
-fn.dependencies = ['Config', 'LickHitter', 'USDR'];
+fn.dependencies = ['Config'];
 fn.skip = async (hre) => {
   // Skip this on non-core deployments or when network isn't avalanche
   const config = await loadConfig(hre);

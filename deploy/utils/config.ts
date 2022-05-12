@@ -75,7 +75,9 @@ export interface DeploymentConfig {
   } | null,
   SWAPPERS: {
     USDRCurvePool: string,
-    swappersToDeploy: Array<string>
+    swappersToDeploy: Array<string>,
+    USDR: string,
+    LickHitter: string
   } | null
 }
 

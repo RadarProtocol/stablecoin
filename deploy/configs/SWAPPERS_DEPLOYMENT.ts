@@ -19,7 +19,9 @@ const SWAPPERS = {
         "BenqiStakedAvaxSwapper",
         "BenqiCurveAaveUnderlyingSwapper",
         "BenqiCurveAaveTricryptoSwapper"
-    ]
+    ],
+    USDR: "",
+    LickHitter: ""
 }
 
 const configuration: DeploymentConfig = {
