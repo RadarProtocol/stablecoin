@@ -78,6 +78,13 @@ export interface DeploymentConfig {
     swappersToDeploy: Array<string>,
     USDR: string,
     LickHitter: string
+  } | null,
+  FARMS_DEPLOYMENT: {
+    USDR: string,
+    USDRCurveLPFarm: {
+      USDRCurvePoolLP: string,
+      RewardDuration: number
+    }
   } | null
 }
 

@@ -7,21 +7,14 @@ import { DeploymentConfig, saveConfig } from '../utils/config';
 const ENABLED = false; // If this config is enabled or not
 const isDevDeploy = false; // Should always be false, only true when deploying to hardhat forks
 const NETWORK = 43114; // Network ID of deployment
-const DEPLOYMENT_TYPE = "Swappers"; // Deployment type: CORE, LPs, Swappers
+const DEPLOYMENT_TYPE = "Farms"; // Deployment type: CORE, LPs, Swappers
 
-// Swappers config
-
-const SWAPPERS = {
-    USDRCurvePool: "",
-    swappersToDeploy: [
-        "BenqiAvaxSwapper",
-        "CurveAaveLPSwapper",
-        "BenqiStakedAvaxSwapper",
-        "BenqiCurveAaveUnderlyingSwapper",
-        "BenqiCurveTricryptoUnderlyingSwapper"
-    ],
+const FARMS_DEPLOYMENT = {
     USDR: "",
-    LickHitter: ""
+    USDRCurveLPFarm: {
+        USDRCurvePoolLP: "",
+        RewardDuration: 60*60*24*28 // 28 days
+    }
 }
 
 const configuration: DeploymentConfig = {
@@ -35,7 +28,8 @@ const configuration: DeploymentConfig = {
     STRATEGIES_CONFIG: null,
     LENDING_POOLS: null,
     SUPPORTED_ASSETS: null,
-    SWAPPERS
+    SWAPPERS: null,
+    FARMS_DEPLOYMENT
 }
 
 const fn: DeployFunction = async (hre) => {
