@@ -351,7 +351,9 @@ contract LendingPair is ReentrancyGuard {
         uint256 _before = ILickHitter(yieldVault).balanceOf(collateral, address(this));
         // 1. Borrow and send direct deposit
         _borrow(swapper, _borrowAmount);
-        IERC20(collateral).safeTransferFrom(msg.sender, swapper, _depositAmount);
+        if (_depositAmount > 0) {
+            IERC20(collateral).safeTransferFrom(msg.sender, swapper, _depositAmount);
+        }
 
         // 2. Swap for collateral
         ISwapper(swapper).depositHook(
