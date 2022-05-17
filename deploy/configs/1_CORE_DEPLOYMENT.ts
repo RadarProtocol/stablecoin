@@ -225,7 +225,8 @@ const configuration: DeploymentConfig = {
     STRATEGIES_CONFIG,
     SUPPORTED_ASSETS,
     LENDING_POOLS: null,
-    SWAPPERS: null
+    SWAPPERS: null,
+    FARMS_DEPLOYMENT: null
 };
 
 const fn: DeployFunction = async (hre) => {
