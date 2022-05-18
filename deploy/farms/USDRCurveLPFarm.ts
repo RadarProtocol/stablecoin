@@ -18,7 +18,7 @@ const fn: DeployFunction = async function (hre) {
       log: true,
       skipIfAlreadyDeployed: true,
       args: [
-          config.FARMS_DEPLOYMENT!.USDR,
+          config.FARMS_DEPLOYMENT!.RADAR,
           config.FARMS_DEPLOYMENT!.USDRCurveLPFarm.USDRCurvePoolLP,
           config.FARMS_DEPLOYMENT!.USDRCurveLPFarm.RewardDuration
       ]

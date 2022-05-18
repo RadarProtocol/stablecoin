@@ -10,7 +10,7 @@ const NETWORK = 43114; // Network ID of deployment
 const DEPLOYMENT_TYPE = "Farms"; // Deployment type: CORE, LPs, Swappers
 
 const FARMS_DEPLOYMENT = {
-    USDR: "",
+    RADAR: "0x44d2B67187d539E83328aDe72A1b5f9512a74444",
     USDRCurveLPFarm: {
         USDRCurvePoolLP: "",
         RewardDuration: 60*60*24*28 // 28 days

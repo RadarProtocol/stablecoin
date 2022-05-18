@@ -80,7 +80,7 @@ export interface DeploymentConfig {
     LickHitter: string
   } | null,
   FARMS_DEPLOYMENT: {
-    USDR: string,
+    RADAR: string,
     USDRCurveLPFarm: {
       USDRCurvePoolLP: string,
       RewardDuration: number
