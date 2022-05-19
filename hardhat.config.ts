@@ -106,7 +106,7 @@ const config: HardhatUserConfig = {
       accounts: accounts('avaxc'),
       url: node('avaxc'),
       timeout: 259200000,
-      gasPrice: 25000000000,
+      gasPrice: 28000000000,
       gasMultiplier: 1.1
     },
     moonbeam: {

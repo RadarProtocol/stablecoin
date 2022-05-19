@@ -12,7 +12,7 @@ const DEPLOYMENT_TYPE = "Swappers"; // Deployment type: CORE, LPs, Swappers
 // Swappers config
 
 const SWAPPERS = {
-    USDRCurvePool: "0xb6C7Af9a5703B8E03358dE0A6c07e3208B0CD6A4",
+    USDRCurvePool: "0x6856860ce8913e98A2baC1A922F309D9a16651fA",
     swappersToDeploy: [
         "BenqiAvaxSwapper",
         "CurveAaveLPSwapper",
@@ -20,8 +20,8 @@ const SWAPPERS = {
         "BenqiCurveAaveUnderlyingSwapper",
         "BenqiCurveTricryptoUnderlyingSwapper"
     ],
-    USDR: "0xCD8a1C3ba11CF5ECfa6267617243239504a98d90",
-    LickHitter: "0x82e01223d51Eb87e16A03E24687EDF0F294da6f1"
+    USDR: "0x9456e074A1e6Eb3B6952a47Da2859dd1Ad6C2B25",
+    LickHitter: "0xed71c373d5f119796014a405Ddd1e6DfCb27b821"
 }
 
 const configuration: DeploymentConfig = {

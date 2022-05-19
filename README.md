@@ -5,42 +5,46 @@
 ## AVALANCHE
 
 ### CORE
-* LendingPair Master Contract: ``
-* LickHitter: ``
-* USDR: ``
-* Stabilizer: ``
+* LendingPair Master Contract: `0xAf445d2efad68bbB24fDF798ab34B2E90F5acae0`
+* LickHitter: `0xed71c373d5f119796014a405Ddd1e6DfCb27b821`
+* USDR: `0x9456e074A1e6Eb3B6952a47Da2859dd1Ad6C2B25`
+* Stabilizer: `0xfbD2CD42E1b0730f92F73a09DEba3D3bBA3434E1`
 
 ### ORACLE
-* LendingOracleAggregator: ``
+* LendingOracleAggregator: `0xD62776f1BFCB05532e3d115CaD70aDCB2e431754`
 
 ### Depositors
-* BenqiDepositor: ``
-* CurveDepositor: ``
+* BenqiDepositor: `0x0EfB11caB80189fc47C80D33cAeF5eFdBe1A5a61`
+* CurveDepositor: `0x9d675a7F4459000A30c6fa4787dF9caC9f13B4CC`
+* AvaxWrapperDepositor: `0x538Ef765ed0C0e162cc7B5ebFE170EA4DA141379`
 
 ### FARMS
-* USDRCurveLPFarm: ``
+* USDRCurveLPFarm: `0x1b842E625143Ee99743755c9801fB9AE9C7C53eC`
 
 ### Strategies
-* BENQIStrategy: ``
-* CurveLPStrategy: ``
+* BENQIStrategy: `0xfF48fBD9f5E38a6060c6Ce6341966bFa39c6A5eD`
+* CurveLPAvalancheStrategy: `0xDDc0b9D0AE67Ae7167BcF359C845977BA2D506a8`
 
 ### Swappers
 * AvaxSwapper: ``
-* BenqiAvaxSwapper: ``
-* BenqiCurveAaveUnderlyingSwapper: ``
-* BenqiCurveTricryptoUnderlyingSwapper: ``
-* BenqiStakedAvaxSwapper: ``
-* CurveAaveLPSwapper: ``
+* BenqiAvaxSwapper: `0x709B1c215A6289f5fAa46319a81bCe43E0F9883f`
+* BenqiCurveAaveUnderlyingSwapper: `0x606E62dF648AAaE473ff235B892E82024bAc6c21`
+* BenqiCurveTricryptoUnderlyingSwapper: `0xbb2762865356924E08e641D3c4590E0597D0f634`
+* BenqiStakedAvaxSwapper: `0x96AF46824FecAAd3b8295AaF89f8c08154443475`
+* CurveAaveLPSwapper: `0xE987a4c50B496Ff3E54Ab7CA7626ed02Fb5A4dD1`
 * CurveAaveUnderlyingSwapper: ``
 * CurveTricryptoLPSwapper: ``
 * CurveTricryptoUnderlyingSwapper: ``
 
 ### LendingPools
-* av3Crv: ``
-* sAVAX: ``
-* qiUSDC: ``
-* qiUSDT: ``
-* qiDAI: ``
-* qiETH: ``
-* qiBTC: ``
-* qiAVAX: ``
+* av3Crv: `0x80C7D6c81fBd9E6777E430e981C9ED4A5eed5682`
+* sAVAX: `0x8cC220B7017D88a4D44DC9a5eCE91C43F7cEDB5D`
+* qiUSDC: `0x66EdB72CF84eDF0E742e6A2f6425c3D3053eD1f2`
+* qiUSDT: `0x5e0c872B7cFFa7baAfc571892220A18d27ef6893`
+* qiDAI: `0x38c19e770a4d55C27DaEF887360aa5F955F4cdee`
+* qiETH: `0x896ce93DB96E5c540E5F29f2549294D864b8822D`
+* qiBTC: `0x377D46fda56e50284979ebef7Ee25CBc94f95b6c`
+* qiAVAX: `0x3bE6aaA9e439bf515792b9a9F412Ac0e341397b9`
+
+### Curve Metapools
+* USDR-av3CRv Metapool: `0x6856860ce8913e98A2baC1A922F309D9a16651fA`

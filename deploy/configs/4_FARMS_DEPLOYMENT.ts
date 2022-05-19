@@ -12,7 +12,7 @@ const DEPLOYMENT_TYPE = "Farms"; // Deployment type: CORE, LPs, Swappers
 const FARMS_DEPLOYMENT = {
     RADAR: "0x44d2B67187d539E83328aDe72A1b5f9512a74444",
     USDRCurveLPFarm: {
-        USDRCurvePoolLP: "",
+        USDRCurvePoolLP: "0x6856860ce8913e98A2baC1A922F309D9a16651fA",
         RewardDuration: 60*60*24*28 // 28 days
     }
 }

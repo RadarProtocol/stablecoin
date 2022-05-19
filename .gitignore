@@ -10,5 +10,6 @@ typechain
 cache
 artifacts
 deployments
+deployments_backup
 
 yarn-error.log

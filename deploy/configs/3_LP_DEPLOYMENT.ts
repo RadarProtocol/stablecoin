@@ -11,10 +11,10 @@ const DEPLOYMENT_TYPE = "LPs"; // Deployment type: CORE, LPs, Swappers
 
 // LPs CONFIG
 const LENDING_POOLS = {
-    MASTER: "0xb7278A61aa25c888815aFC32Ad3cC52fF24fE575",
-    USDR: "0xCD8a1C3ba11CF5ECfa6267617243239504a98d90",
-    LICK_HITTER: "0x82e01223d51Eb87e16A03E24687EDF0F294da6f1",
-    ORACLE: "0x1429859428C0aBc9C2C47C8Ee9FBaf82cFA0F20f",
+    MASTER: "0xAf445d2efad68bbB24fDF798ab34B2E90F5acae0",
+    USDR: "0x9456e074A1e6Eb3B6952a47Da2859dd1Ad6C2B25",
+    LICK_HITTER: "0xed71c373d5f119796014a405Ddd1e6DfCb27b821",
+    ORACLE: "0xD62776f1BFCB05532e3d115CaD70aDCB2e431754",
     FEE_RECEIVER: "0x6d9abd331698D721fc54F5188bdeb3B500EC1182",
     POOLS: [
         {
@@ -25,7 +25,7 @@ const LENDING_POOLS = {
             liq_incentive: 500,
             liq_dao_fee: 1000,
             max_ltv: 9200,
-            swapper_address: "0x4C4a2f8c81640e47606d3fd77B353E87Ba015584"
+            swapper_address: "0xE987a4c50B496Ff3E54Ab7CA7626ed02Fb5A4dD1"
         },
         {
             collateral: "0xBEb5d47A3f720Ec0a390d04b4d41ED7d9688bC7F",
@@ -35,7 +35,7 @@ const LENDING_POOLS = {
             liq_incentive: 500,
             liq_dao_fee: 1000,
             max_ltv: 9200,
-            swapper_address: "0xdbC43Ba45381e02825b14322cDdd15eC4B3164E6"
+            swapper_address: "0x606E62dF648AAaE473ff235B892E82024bAc6c21"
         },
         {
             collateral: "0xc9e5999b8e75C3fEB117F6f73E664b9f3C8ca65C",
@@ -45,7 +45,7 @@ const LENDING_POOLS = {
             liq_incentive: 500,
             liq_dao_fee: 1000,
             max_ltv: 9200,
-            swapper_address: "0xdbC43Ba45381e02825b14322cDdd15eC4B3164E6"
+            swapper_address: "0x606E62dF648AAaE473ff235B892E82024bAc6c21"
         },
         {
             collateral: "0x835866d37AFB8CB8F8334dCCdaf66cf01832Ff5D",
@@ -55,7 +55,7 @@ const LENDING_POOLS = {
             liq_incentive: 500,
             liq_dao_fee: 1000,
             max_ltv: 9200,
-            swapper_address: "0xdbC43Ba45381e02825b14322cDdd15eC4B3164E6"
+            swapper_address: "0x606E62dF648AAaE473ff235B892E82024bAc6c21"
         },
         {
             collateral: "0xaf2c034C764d53005cC6cbc092518112cBD652bb",
@@ -65,7 +65,7 @@ const LENDING_POOLS = {
             liq_incentive: 1000,
             liq_dao_fee: 1000,
             max_ltv: 8500,
-            swapper_address: "0x1fA02b2d6A771842690194Cf62D91bdd92BfE28d"
+            swapper_address: "0x709B1c215A6289f5fAa46319a81bCe43E0F9883f"
         },
         {
             collateral: "0xe194c4c5aC32a3C9ffDb358d9Bfd523a0B6d1568",
@@ -75,7 +75,7 @@ const LENDING_POOLS = {
             liq_incentive: 1000,
             liq_dao_fee: 1000,
             max_ltv: 8500,
-            swapper_address: "0x21dF544947ba3E8b3c32561399E88B52Dc8b2823"
+            swapper_address: "0xbb2762865356924E08e641D3c4590E0597D0f634"
         },
         {
             collateral: "0x334AD834Cd4481BB02d09615E7c11a00579A7909",
@@ -85,7 +85,7 @@ const LENDING_POOLS = {
             liq_incentive: 1000,
             liq_dao_fee: 1000,
             max_ltv: 8500,
-            swapper_address: "0x21dF544947ba3E8b3c32561399E88B52Dc8b2823"
+            swapper_address: "0xbb2762865356924E08e641D3c4590E0597D0f634"
         },
         {
             collateral: "0x2b2C81e08f1Af8835a78Bb2A90AE924ACE0eA4bE",
@@ -95,7 +95,7 @@ const LENDING_POOLS = {
             liq_incentive: 1000,
             liq_dao_fee: 1000,
             max_ltv: 8500,
-            swapper_address: "0x04C89607413713Ec9775E14b954286519d836FEf"
+            swapper_address: "0x96AF46824FecAAd3b8295AaF89f8c08154443475"
         }
     ]
 }
