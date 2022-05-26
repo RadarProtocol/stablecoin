@@ -13,7 +13,7 @@ const snapshot = async () => {
     const USDT = stableFactory.attach("0xc7198437980c041c805A1EDcbA50c1Ce5db95118");
     const WAVAX = stableFactory.attach("0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7");
     const av3Crv = stableFactory.attach("0x1337BedC9D22ecbe766dF105c9623922A27963EC");
-    const qiAVAX = stableFactory.attach("0xaf2c034C764d53005cC6cbc092518112cBD652bb");
+    const qiAVAX = stableFactory.attach("0x5C0401e81Bc07Ca70fAD469b451682c0d747Ef1c");
 
     const yvFactory = await ethers.getContractFactory("LickHitter");
     const yieldVault = await yvFactory.deploy(

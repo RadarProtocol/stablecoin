@@ -30,7 +30,7 @@ contract BenqiAvaxSwapper is ISwapper, ILiquidator {
     address private constant WAVAX = 0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7;
     address private constant av3Crv_POOL = 0x7f90122BF0700F9E7e1F688fe926940E8839F353;
     address private constant av3Crv = 0x1337BedC9D22ecbe766dF105c9623922A27963EC;
-    address payable private constant qiAVAX = payable(0xaf2c034C764d53005cC6cbc092518112cBD652bb);
+    address payable private constant qiAVAX = payable(0x5C0401e81Bc07Ca70fAD469b451682c0d747Ef1c);
 
     constructor(
         address _yv,

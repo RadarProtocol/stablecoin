@@ -16,7 +16,7 @@ contract BenqiDepositor {
 
     uint256 private constant MAX_UINT = 2**256 - 1;
 
-    address payable private constant qiAVAX = payable(0xaf2c034C764d53005cC6cbc092518112cBD652bb);
+    address payable private constant qiAVAX = payable(0x5C0401e81Bc07Ca70fAD469b451682c0d747Ef1c);
 
     function deposit(
         address _underlying,

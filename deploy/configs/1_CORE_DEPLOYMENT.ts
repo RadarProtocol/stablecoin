@@ -39,7 +39,7 @@ const SUPPORTED_ASSETS = [
         buffer: BigNumber.from(500 * 10**8)
     },
     {
-        asset: "0xaf2c034c764d53005cc6cbc092518112cbd652bb", // qiAVAX
+        asset: "0x5C0401e81Bc07Ca70fAD469b451682c0d747Ef1c", // qiAVAX
         buffer: BigNumber.from(500 * 10**8)
     },
     {
@@ -139,9 +139,9 @@ const ORACLE_CONFIG = {
             ) // USDT.e underlying, 6 decimals
         },
         {
-            address: "0xaf2c034c764d53005cc6cbc092518112cbd652bb", // qiAVAX
+            address: "0x5C0401e81Bc07Ca70fAD469b451682c0d747Ef1c", // qiAVAX
             feedType: 5,
-            feed: "0xaf2c034c764d53005cc6cbc092518112cbd652bb",
+            feed: "0x5C0401e81Bc07Ca70fAD469b451682c0d747Ef1c",
             feedDecimals: 8,
             metadata: abiCoder.encode(
                 ["address","uint256"],
@@ -194,7 +194,7 @@ const STRATEGIES_CONFIG = {
             },
             {
                 token: "0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7", // wAVAX
-                qiToken: "0xaf2c034c764d53005cc6cbc092518112cbd652bb" // qiAVAX
+                qiToken: "0x5C0401e81Bc07Ca70fAD469b451682c0d747Ef1c" // qiAVAX
             },
             {
                 token: "0x50b7545627a5162F82A992c33b87aDc75187B218", // wBTC

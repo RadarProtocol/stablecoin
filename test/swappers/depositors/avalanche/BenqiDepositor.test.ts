@@ -71,7 +71,7 @@ describe('Avalanche: BenqiDepositor', () => {
         } = await snapshot();
 
         const amount = ethers.utils.parseEther('10');
-        const qiAVAX = usdrFactory.attach("0xaf2c034C764d53005cC6cbc092518112cBD652bb");
+        const qiAVAX = usdrFactory.attach("0x5C0401e81Bc07Ca70fAD469b451682c0d747Ef1c");
         
         await yieldVault.addSupportedToken(qiAVAX.address, 0);
 

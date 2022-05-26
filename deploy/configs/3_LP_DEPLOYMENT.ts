@@ -58,15 +58,15 @@ const LENDING_POOLS = {
             swapper_address: "0x606E62dF648AAaE473ff235B892E82024bAc6c21"
         },
         {
-            collateral: "0xaf2c034C764d53005cC6cbc092518112cBD652bb",
+            collateral: "0x5C0401e81Bc07Ca70fAD469b451682c0d747Ef1c",
             name: "qiAVAX",
             entry_fee: 100,
             exit_fee: 50,
             liq_incentive: 1000,
             liq_dao_fee: 1000,
             max_ltv: 8500,
-            swapper_address: "0x709B1c215A6289f5fAa46319a81bCe43E0F9883f"
-        },
+            swapper_address: "0xEcD0f9F76A4Ff4b0Fb71A5BEe7B30bf1e4b3F680"
+        }
         {
             collateral: "0xe194c4c5aC32a3C9ffDb358d9Bfd523a0B6d1568",
             name: "qiBTC",
